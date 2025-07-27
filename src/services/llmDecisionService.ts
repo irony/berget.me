@@ -148,7 +148,7 @@ export class LLMDecisionService {
       const reflectionMessages = [
         {
           role: 'system' as const,
-          content: 'Du är en emotionellt intelligent AI som analyserar användarens känslor i realtid. Svara ALLTID med valid JSON enligt det format som begärs. Använd ALDRIG markdown-kodblock.'
+          content: 'Du är en emotionellt intelligent AI som analyserar användarens känslor i realtid. Svara ALLTID med valid JSON enligt det format som begärs. Använd ALDRIG markdown-kodblock. Svara ENDAST med JSON, inget annat text.'
         },
         {
           role: 'user' as const,
@@ -158,11 +158,20 @@ export class LLMDecisionService {
       
       bergetAPI.sendReflectionAnalysisMessageWithJsonMode(reflectionMessages)
         .then(response => {
-          console.log('📨 Raw API response for reflection:', response);
+          console.log('📨 Raw API response for reflection (first 200 chars):', response.substring(0, 200));
+          console.log('📨 Full response length:', response.length);
           
           // Check if response is an error message
           if (response.includes('🔑') || response.includes('API-nyckel') || response.includes('API-fel')) {
             console.error('❌ API returned error message:', response);
+            subscriber.next(null);
+            subscriber.complete();
+            return;
+          }
+          
+          // Check if response is empty or too short
+          if (!response || response.trim().length < 10) {
+            console.error('❌ API returned empty or very short response:', response);
             subscriber.next(null);
             subscriber.complete();
             return;
@@ -174,6 +183,7 @@ export class LLMDecisionService {
             
             if (!reflection || typeof reflection !== 'object') {
               console.error('❌ Failed to parse reflection - invalid JSON structure:', reflection);
+              console.error('❌ Original response:', response);
               subscriber.next(null);
               subscriber.complete();
               return;
@@ -181,12 +191,25 @@ export class LLMDecisionService {
             
             console.log('✅ Parsed reflection JSON:', reflection);
             
-            // Validate required fields
-            if (!reflection.content || !reflection.emotionalState) {
-              console.error('❌ Reflection missing required fields:', reflection);
+            // Validate required fields with more detailed logging
+            if (!reflection.content) {
+              console.error('❌ Reflection missing content field:', reflection);
               subscriber.next(null);
               subscriber.complete();
               return;
+            }
+            
+            if (!reflection.emotionalState) {
+              console.error('❌ Reflection missing emotionalState field:', reflection);
+              subscriber.next(null);
+              subscriber.complete();
+              return;
+            }
+            
+            // Ensure emotions is an array
+            const emotions = Array.isArray(reflection.emotions) ? reflection.emotions : ['🤔'];
+            if (emotions.length === 0) {
+              emotions.push('🤔');
             }
             
             const reflectionMessage: ReflectionMessage = {
@@ -194,7 +217,7 @@ export class LLMDecisionService {
               content: reflection.content,
               timestamp: new Date(),
               isVisible: true,
-              emotions: Array.isArray(reflection.emotions) ? reflection.emotions : ['🤔'],
+              emotions: emotions,
               emotionalState: reflection.emotionalState
             };
             
@@ -203,7 +226,9 @@ export class LLMDecisionService {
             subscriber.complete();
           } catch (error) {
             console.error('❌ Failed to parse reflection JSON:', error);
-            console.log('📄 Raw response that failed to parse:', response);
+            console.error('📄 Raw response that failed to parse:', response);
+            console.error('📄 Response type:', typeof response);
+            console.error('📄 Response constructor:', response.constructor.name);
             subscriber.next(null);
             subscriber.complete();
           }
