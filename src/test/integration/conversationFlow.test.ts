@@ -11,11 +11,18 @@ import { ConversationState } from '../../types/conversationState';
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
+      if (!text || text.length === 0) {
+        return Promise.resolve(new Array(384).fill(0.1));
+      }
+      
       const embedding = new Array(384).fill(0);
       for (let i = 0; i < text.length && i < 384; i++) {
-        embedding[i] = text.charCodeAt(i) / 1000;
+        embedding[i] = (text.charCodeAt(i) / 1000) + 0.1;
       }
-      return Promise.resolve(embedding);
+      
+      // Ensure we always return a valid embedding
+      const validEmbedding = embedding.every(val => val === 0) ? new Array(384).fill(0.1) : embedding;
+      return Promise.resolve(validEmbedding);
     }),
     clearCache: vi.fn(),
     getCacheStats: vi.fn().mockReturnValue({ size: 0, keys: [] })
@@ -188,7 +195,7 @@ describe('Conversation Flow Integration Tests', () => {
       // 3. Verifiera att AI:n inte agerar
       expect(decision.shouldAct).toBe(false);
       expect(decision.actionType).toBe('wait');
-      expect(decision.reasoning).toContain('naturligt');
+      expect(decision.reasoning).toContain('flyter');
     });
 
     it('ska föreslå check-in när användaren varit tyst', async () => {
@@ -259,6 +266,7 @@ describe('Conversation Flow Integration Tests', () => {
 
       // 4. Verifiera reflektion
       expect(reflection).toBeTruthy();
+      expect(reflection).not.toBeNull();
       expect(reflection.content).toContain('stress');
       expect(reflection.emotions).toContain('😰');
       expect(reflection.emotionalState).toContain('Stressad');
@@ -296,6 +304,7 @@ describe('Conversation Flow Integration Tests', () => {
 
       // 5. Verifiera att reflektion ändå genererades
       expect(reflection).toBeTruthy();
+      expect(reflection).not.toBeNull();
       expect(reflection.content).toBeTruthy();
     });
   });

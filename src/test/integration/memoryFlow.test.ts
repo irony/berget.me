@@ -11,6 +11,10 @@ import { Message } from '../../types/chat';
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
+      if (!text || text.length === 0) {
+        return Promise.resolve(new Array(384).fill(0.1));
+      }
+      
       // Create a simple mock embedding based on text content
       const words = text.toLowerCase().split(' ');
       const embedding = new Array(384).fill(0);
@@ -24,9 +28,11 @@ vi.mock('../../services/embeddingService', () => ({
         }
       });
       
-      // Normalize
+      // Ensure we always have a valid embedding
       const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-      return Promise.resolve(magnitude > 0 ? embedding.map(val => val / magnitude) : embedding);
+      const normalizedEmbedding = magnitude > 0 ? embedding.map(val => val / magnitude) : new Array(384).fill(0.1);
+      
+      return Promise.resolve(normalizedEmbedding);
     }),
     clearCache: vi.fn(),
     getCacheStats: vi.fn().mockReturnValue({ size: 0, keys: [] })

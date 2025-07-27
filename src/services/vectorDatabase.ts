@@ -131,7 +131,8 @@ export class VectorDatabase {
   ): Promise<string> {
     try {
       const embedding = await EmbeddingService.getEmbedding(content);
-      if (!embedding || !Array.isArray(embedding)) {
+      if (!embedding || !Array.isArray(embedding) || embedding.length === 0) {
+        console.error('Invalid embedding returned from service:', embedding);
         throw new Error('Invalid embedding returned from service');
       }
       const indexVectors = await this.getIndexVectors();

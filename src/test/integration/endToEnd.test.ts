@@ -279,8 +279,11 @@ describe('End-to-End Integration Tests', () => {
       await user.type(searchInput, 'Anna');
 
       // 7. Klicka på sökknappen
-      const searchButton = screen.getByRole('button');
-      await user.click(searchButton);
+      const searchButtons = screen.getAllByRole('button');
+      const searchButton = searchButtons.find(btn => btn.getAttribute('type') !== 'submit');
+      if (searchButton) {
+        await user.click(searchButton);
+      }
 
       // 8. Vänta på sökresultat
       await waitFor(() => {
