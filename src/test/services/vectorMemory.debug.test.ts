@@ -172,7 +172,7 @@ describe('VectorMemory Debug Tests', () => {
       console.log('🧪 TEST: Embedding1 sample:', embedding1.slice(0, 5));
       console.log('🧪 TEST: Embedding3 sample:', embedding3.slice(0, 5));
       
-      expect(sim1_2).toBe(1.0); // Identiska embeddings
+      expect(sim1_2).toBeCloseTo(1.0, 10); // Identiska embeddings (floating point precision)
       expect(sim1_3).toBeLessThan(0.99); // Olika embeddings (mer realistisk threshold)
       expect(sim1_3).toBeGreaterThan(0); // Men fortfarande positiv similarity
     });
@@ -188,11 +188,18 @@ describe('VectorMemory Debug Tests', () => {
       const allEntries = VectorDatabase.getAllEntries();
       console.log('🧪 TEST: VectorDatabase entries count:', allEntries.length);
       
+      // Vänta lite för att säkerställa att indexering är klar
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const searchResults = await VectorDatabase.searchSimilar('kaffe', 5, 0.001);
       console.log('🧪 TEST: VectorDatabase search results:', searchResults.length);
       
       if (searchResults.length > 0) {
         console.log('🧪 TEST: First search result similarity:', searchResults[0].similarity);
+      } else {
+        // Debug: försök med exakt samma text
+        const exactResults = await VectorDatabase.searchSimilar('Användaren gillar kaffe', 5, 0.001);
+        console.log('🧪 TEST: Exact text search results:', exactResults.length);
       }
       
       expect(allEntries.length).toBe(1);
