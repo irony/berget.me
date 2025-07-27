@@ -51,8 +51,8 @@ vi.mock('../../services/api', () => ({
         
         if (lastMessage?.content.includes('heter Anna')) {
           response = '💾 Trevligt att träffas Anna! Jag kommer ihåg ditt namn.';
-        } else if (lastMessage?.content.includes('vad heter jag')) {
-          response = '🔍 Låt mig tänka... Du heter Anna!';
+        } else if (lastMessage?.content.includes('vad heter jag') || lastMessage?.content.includes('Vad heter jag')) {
+          response = 'Du heter Anna!';
         } else if (lastMessage?.content.includes('mår dåligt')) {
           response = 'Jag förstår att du mår dåligt. Vill du prata om vad som händer?';
         } else {
