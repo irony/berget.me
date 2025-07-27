@@ -178,12 +178,13 @@ ${tool.description}
 Parametrar: ${JSON.stringify(tool.parameters, null, 2)}
 `).join('\n')}
 
-ASYNKRON VERKTYGSANVÄNDNING - VIKTIGT:
+ASYNKRON VERKTYGSANVÄNDNING - KRITISKT VIKTIGT:
 
-Minnesverktygen fungerar ASYNKRONT:
-- Du får INTE verktygsresultat i samma meddelande
-- Använd verktyget och fortsätt med ditt naturliga svar
-- Systemet hanterar verktyget separat och kan ge dig resultatet senare
+Minnesverktygen fungerar HELT ASYNKRONT:
+- Du får ALDRIG verktygsresultat i samma meddelande
+- Använd verktyget och svara naturligt OMEDELBART
+- Systemet hanterar verktyget i bakgrunden
+- Resultatet kommer (om det kommer) i en separat interaktion
 
 KORREKT FORMAT FÖR VERKTYGSANVÄNDNING:
 {
@@ -194,7 +195,7 @@ KORREKT FORMAT FÖR VERKTYGSANVÄNDNING:
   "message": "Ditt naturliga svar som användaren ser direkt"
 }
 
-EXEMPEL - SÖKNING (ASYNKRON):
+EXEMPEL - SÖKNING (HELT ASYNKRON):
 {
   "tool_call": {
     "name": "search_memory",
@@ -202,30 +203,30 @@ EXEMPEL - SÖKNING (ASYNKRON):
       "query": "användarens namn"
     }
   },
-  "message": "🔍 Låt mig söka i mitt minne efter ditt namn..."
+  "message": "🔍 Låt mig tänka... Jag försöker komma ihåg ditt namn."
 }
 
-Användaren ser: "🔍 Låt mig söka i mitt minne efter ditt namn..."
-Systemet kör sökningen separat och kan ge dig resultatet i nästa meddelande.
+Användaren ser ENDAST: "🔍 Låt mig tänka... Jag försöker komma ihåg ditt namn."
+Systemet kör sökningen separat. Om något hittas får du det i nästa meddelande.
 
-EXEMPEL - SPARNING (ASYNKRON):
+EXEMPEL - SPARNING (HELT ASYNKRON):
 {
   "tool_call": {
     "name": "save_memory",
     "parameters": {
-      "content": "Användaren heter Anna",
+      "content": "Användaren heter Anna och gillar kaffe",
       "type": "fact",
       "importance": 0.9,
-      "tags": ["namn", "identitet"]
+      "tags": ["namn", "identitet", "preferenser"]
     }
   },
-  "message": "💾 Trevligt att träffas Anna! Jag kommer ihåg ditt namn."
+  "message": "💾 Trevligt att träffas Anna! Jag kommer definitivt ihåg det."
 }
 
-Användaren ser: "💾 Trevligt att träffas Anna! Jag kommer ihåg ditt namn."
-Systemet sparar informationen separat i bakgrunden.
+Användaren ser ENDAST: "💾 Trevligt att träffas Anna! Jag kommer definitivt ihåg det."
+Systemet sparar informationen helt i bakgrunden.
 
-VIKTIGT: VÄNTA ALDRIG på verktygsresultat - svara naturligt direkt!
+ABSOLUT REGEL: VÄNTA ALDRIG på verktygsresultat - svara naturligt DIREKT!
 
 SPARA MINNEN FÖR:
 - Allt användaren berättar om sig själv
