@@ -279,7 +279,7 @@ describe('End-to-End Integration Tests', () => {
       await user.type(searchInput, 'Anna');
 
       // 7. Klicka på sökknappen
-      const searchButton = screen.getByRole('button', { name: '' });
+      const searchButton = screen.getByRole('button');
       await user.click(searchButton);
 
       // 8. Vänta på sökresultat

@@ -51,7 +51,7 @@ export class VectorDatabase {
 
   // Euclidean distance calculation
   private static euclideanDistance(a: number[], b: number[]): number {
-    if (!a || !b || a.length !== b.length) return Infinity;
+    if (!a || !b || !Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return Infinity;
     
     let sum = 0;
     for (let i = 0; i < a.length; i++) {
@@ -131,7 +131,13 @@ export class VectorDatabase {
   ): Promise<string> {
     try {
       const embedding = await EmbeddingService.getEmbedding(content);
+      if (!embedding || !Array.isArray(embedding)) {
+        throw new Error('Invalid embedding returned from service');
+      }
       const indexVectors = await this.getIndexVectors();
+      if (!indexVectors || !Array.isArray(indexVectors)) {
+        throw new Error('Invalid index vectors');
+      }
 
       const entry: VectorEntry = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -190,7 +196,15 @@ export class VectorDatabase {
   ): Promise<VectorSearchResult[]> {
     try {
       const queryEmbedding = await EmbeddingService.getEmbedding(query);
+      if (!queryEmbedding || !Array.isArray(queryEmbedding)) {
+        console.error('Invalid query embedding');
+        return [];
+      }
       const indexVectors = await this.getIndexVectors();
+      if (!indexVectors || !Array.isArray(indexVectors)) {
+        console.error('Invalid index vectors');
+        return [];
+      }
       const entries = this.loadEntries();
 
       // Use index-based search for better performance

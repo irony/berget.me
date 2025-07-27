@@ -7,6 +7,11 @@ import { TimingService } from './timingService';
 
 export class LLMDecisionService {
   private static extractJSON(response: string): any {
+    if (!response || typeof response !== 'string') {
+      console.error('Invalid response for JSON extraction:', response);
+      return null;
+    }
+
     try {
       // Remove any markdown code blocks first
       const cleanResponse = response.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
@@ -31,12 +36,12 @@ export class LLMDecisionService {
           return JSON.parse(jsonMatch[0]);
         } catch (innerError) {
           console.error('Failed to parse extracted JSON:', innerError);
-          throw new Error(`Invalid JSON structure: ${innerError.message}`);
+          return null;
         }
       }
       
       console.error('No valid JSON found in response:', response);
-      throw new Error('No valid JSON found in response');
+      return null;
     }
   }
 

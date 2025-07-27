@@ -215,6 +215,7 @@ describe('Conversation Flow Integration Tests', () => {
         .build();
 
       // Mock för att simulera tystnad
+      const { bergetAPI } = await import('../../services/api');
       vi.mocked(bergetAPI.sendAnalysisMessageWithJsonMode).mockResolvedValueOnce(
         JSON.stringify({
           shouldAct: true,
@@ -459,6 +460,7 @@ describe('Conversation Flow Integration Tests', () => {
   describe('Error Recovery', () => {
     it('ska återhämta sig från API-fel gracefully', async () => {
       // 1. Mock API att kasta fel
+      const { bergetAPI } = await import('../../services/api');
       vi.mocked(bergetAPI.sendAnalysisMessageWithJsonMode).mockRejectedValueOnce(
         new Error('API Error')
       );
@@ -483,6 +485,7 @@ describe('Conversation Flow Integration Tests', () => {
 
     it('ska hantera korrupt JSON från API', async () => {
       // 1. Mock API att returnera ogiltig JSON
+      const { bergetAPI } = await import('../../services/api');
       vi.mocked(bergetAPI.sendReflectionAnalysisMessageWithJsonMode).mockResolvedValueOnce(
         'Detta är inte valid JSON'
       );

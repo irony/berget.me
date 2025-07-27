@@ -393,6 +393,7 @@ describe('Memory Flow Integration Tests', () => {
 
     it('ska hantera reflektion utan minnesåtgärd', async () => {
       // 1. Mock API att returnera reflektion utan memoryAction
+      const { bergetAPI } = await import('../../services/api');
       vi.mocked(bergetAPI.sendReflectionAnalysisMessageWithJsonMode).mockResolvedValueOnce(
         JSON.stringify({
           content: 'En enkel reflektion',
