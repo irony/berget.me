@@ -2,15 +2,6 @@ import { VectorDatabase } from './vectorDatabase';
 import { Message } from '../types/chat';
 
 export class ConversationIndexer {
-  private static isIndexing = false;
-  private static indexQueue: Array<{
-    content: string;
-    type: 'user_message' | 'assistant_message';
-    importance: number;
-    tags: string[];
-    context?: string;
-  }> = [];
-
   // Index a user message
   static async indexUserMessage(message: Message): Promise<void> {
     if (!message.content.trim()) return;
@@ -18,15 +9,15 @@ export class ConversationIndexer {
     const importance = this.calculateMessageImportance(message.content, 'user');
     const tags = this.extractTags(message.content);
 
-    this.indexQueue.push({
-      content: message.content,
-      type: 'user_message',
+    await VectorDatabase.saveEntry(
+      message.content,
+      'user_message',
       importance,
       tags,
-      context: `User message from ${message.timestamp.toISOString()}`
-    });
+      `User message from ${message.timestamp.toISOString()}`
+    );
 
-    this.processQueue();
+    console.log('📝 User message indexed:', message.id);
   }
 
   // Index an assistant message
@@ -36,15 +27,15 @@ export class ConversationIndexer {
     const importance = this.calculateMessageImportance(message.content, 'assistant');
     const tags = this.extractTags(message.content);
 
-    this.indexQueue.push({
-      content: message.content,
-      type: 'assistant_message',
+    await VectorDatabase.saveEntry(
+      message.content,
+      'assistant_message',
       importance,
       tags,
-      context: `Assistant message from ${message.timestamp.toISOString()}`
-    });
+      `Assistant message from ${message.timestamp.toISOString()}`
+    );
 
-    this.processQueue();
+    console.log('📝 Assistant message indexed:', message.id);
   }
 
   // Index conversation context (summary of recent conversation)
@@ -67,15 +58,15 @@ export class ConversationIndexer {
     if (userMessages.length > 0) tags.push('user_interaction');
     if (assistantMessages.length > 0) tags.push('assistant_response');
 
-    this.indexQueue.push({
-      content: conversationSummary,
-      type: 'conversation_context',
+    await VectorDatabase.saveEntry(
+      conversationSummary,
+      'conversation_context',
       importance,
       tags,
-      context: `Conversation context from ${recentMessages[0]?.timestamp.toISOString()} to ${recentMessages[recentMessages.length - 1]?.timestamp.toISOString()}`
-    });
+      `Conversation context from ${recentMessages[0]?.timestamp.toISOString()} to ${recentMessages[recentMessages.length - 1]?.timestamp.toISOString()}`
+    );
 
-    this.processQueue();
+    console.log('📝 Conversation context indexed');
   }
 
   // Search for relevant context before sending a message
@@ -114,12 +105,11 @@ export class ConversationIndexer {
       }));
 
       // Create a context summary
-      let contextSummary = '';
-      if (relevantMemories.length > 0) {
-        contextSummary = `Relevant tidigare kontext:\n${relevantMemories
-          .map(memory => `- ${memory.content.substring(0, 100)}...`)
-          .join('\n')}`;
-      }
+      const contextSummary = relevantMemories.length > 0
+        ? `Hittade ${relevantMemories.length} relevanta kontext-minnen med genomsnittlig likhet ${
+            (relevantMemories.reduce((sum, m) => sum + m.similarity, 0) / relevantMemories.length).toFixed(2)
+          }`
+        : 'Ingen relevant kontext hittades';
 
       console.log('🔍 Relevant context found:', {
         userMessage: userMessage.substring(0, 50) + '...',
@@ -140,43 +130,9 @@ export class ConversationIndexer {
     }
   }
 
-  // Process the indexing queue
-  private static async processQueue(): Promise<void> {
-    if (this.isIndexing || this.indexQueue.length === 0) return;
-
-    this.isIndexing = true;
-    console.log('📝 Processing conversation indexing queue:', this.indexQueue.length, 'items');
-
-    try {
-      // Process items in batches to avoid overwhelming the embedding service
-      const batchSize = 3;
-      while (this.indexQueue.length > 0) {
-        const batch = this.indexQueue.splice(0, batchSize);
-        
-        await Promise.all(
-          batch.map(async item => {
-            try {
-              await VectorDatabase.saveEntry(
-                item.content,
-                item.type,
-                item.importance,
-                item.tags,
-                item.context
-              );
-            } catch (error) {
-              console.error('❌ Error indexing item:', error, item);
-            }
-          })
-        );
-
-        // Small delay between batches to prevent API rate limiting
-        if (this.indexQueue.length > 0) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-    } finally {
-      this.isIndexing = false;
-    }
+  // Process queue (simplified - no longer needed)
+  static async processQueue(): Promise<void> {
+    // No-op for backward compatibility
   }
 
   // Calculate importance of a message
@@ -245,22 +201,27 @@ export class ConversationIndexer {
     return tags;
   }
 
-  // Get indexing statistics
+  // Get indexing statistics (simplified)
   static getStats(): {
     queueLength: number;
     isIndexing: boolean;
     databaseStats: any;
   } {
+    const databaseStats = VectorDatabase.getStats();
     return {
-      queueLength: this.indexQueue.length,
-      isIndexing: this.isIndexing,
-      databaseStats: VectorDatabase.getStats()
+      queueLength: 0,
+      isIndexing: false,
+      databaseStats
     };
   }
 
-  // Clear the indexing queue
+  // Get queue size for tests (simplified)
+  static getQueueSize(): number {
+    return 0;
+  }
+
+  // Clear the indexing queue (simplified)
   static clearQueue(): void {
-    this.indexQueue = [];
-    console.log('🧹 Indexing queue cleared');
+    // No-op for backward compatibility
   }
 }

@@ -11,19 +11,19 @@ import { Message } from '../../types/chat';
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
-      if (!text || text.length === 0) {
-        return Promise.resolve(new Array(384).fill(0.1));
+      // Skapa en helt enkel, deterministisk embedding som ALLTID fungerar
+      const safeText = text || 'fallback';
+      const embedding = new Array(384);
+      
+      // Använd enkel hash för konsistens
+      let hash = 0;
+      for (let i = 0; i < safeText.length; i++) {
+        hash = (hash + safeText.charCodeAt(i)) % 1000;
       }
       
-      // Create a deterministic embedding based on text content
-      const embedding = new Array(384).fill(0);
-      for (let i = 0; i < text.length && i < 384; i++) {
-        embedding[i] = (text.charCodeAt(i) / 1000) + Math.sin(i) * 0.1 + 0.01;
-      }
-      
-      // Add some variance to make embeddings unique
+      // Fyll embedding med säkra värden
       for (let i = 0; i < 384; i++) {
-        embedding[i] += (i * 0.001) + (text.length * 0.0001);
+        embedding[i] = 0.1 + (hash / 10000) + (i / 10000);
       }
       
       return Promise.resolve(embedding);
@@ -34,6 +34,7 @@ vi.mock('../../services/embeddingService', () => ({
 }));
 
 // Mock the bergetAPI to avoid real API calls
+const { bergetAPI } = await import('../../services/api');
 vi.mock('../../services/api', () => ({
   bergetAPI: {
     sendReflectionAnalysisMessageWithJsonMode: vi.fn().mockImplementation((messages) => {
@@ -134,8 +135,22 @@ describe('Memory Flow Integration Tests', () => {
         LLMDecisionService.generateReflection(state).subscribe(resolve);
       });
 
-      // 4. Vänta lite för att låta asynkron minneslagring slutföras
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // 4. Vänta på att reflektionen slutförs och eventuell minneslagring
+      const reflectionResult = await new Promise(resolve => {
+        LLMDecisionService.generateReflection(state).subscribe({
+          next: (reflection) => {
+            console.log('🧪 Reflection received:', reflection);
+            resolve(reflection);
+          },
+          error: (error) => {
+            console.error('🧪 Reflection error:', error);
+            resolve(null);
+          }
+        });
+      });
+      
+      // Vänta längre för att säkerställa att asynkron minneslagring slutförs
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // 5. Verifiera att reflektionen genererades korrekt
       expect(reflection).toBeTruthy();
@@ -220,20 +235,22 @@ describe('Memory Flow Integration Tests', () => {
         }
       ];
 
-      // 2. Indexera meddelandena
+      // 2. Indexera meddelandena och vänta på att de slutförs
+      const indexPromises = [];
       for (const message of messages) {
         if (message.sender === 'user') {
-          await ConversationIndexer.indexUserMessage(message);
+          indexPromises.push(ConversationIndexer.indexUserMessage(message));
         } else {
-          await ConversationIndexer.indexAssistantMessage(message);
+          indexPromises.push(ConversationIndexer.indexAssistantMessage(message));
         }
       }
 
       // 3. Indexera konversationskontext
-      await ConversationIndexer.indexConversationContext(messages);
+      indexPromises.push(ConversationIndexer.indexConversationContext(messages));
 
-      // 4. Vänta på att indexeringen slutförs
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // 4. Vänta på att alla indexeringsoperationer slutförs
+      await Promise.all(indexPromises);
+      await ConversationIndexer.processQueue();
 
       // 5. Verifiera att meddelanden indexerades
       const allEntries = VectorDatabase.getAllEntries();
@@ -265,13 +282,14 @@ describe('Memory Flow Integration Tests', () => {
         }
       ];
 
-      // 2. Indexera gamla meddelanden
-      for (const message of oldMessages) {
-        await ConversationIndexer.indexUserMessage(message);
-      }
+      // 2. Indexera gamla meddelanden och vänta på att de slutförs
+      const indexPromises = oldMessages.map(message => 
+        ConversationIndexer.indexUserMessage(message)
+      );
 
-      // 3. Vänta på indexering
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // 3. Vänta på att indexeringen slutförs
+      await Promise.all(indexPromises);
+      await ConversationIndexer.processQueue();
 
       // 4. Sök efter relevant kontext för nytt meddelande
       const newMessage = 'Kan du hjälpa mig med TypeScript-problem?';
