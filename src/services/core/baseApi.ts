@@ -123,6 +123,7 @@ export class BaseAPI {
 
       let fullContent = '';
       let toolCalls: any[] = [];
+      let jsonBuffer = '';
       const decoder = new TextDecoder();
 
       try {
@@ -143,8 +144,41 @@ export class BaseAPI {
                 const delta = parsed.choices?.[0]?.delta;
                 
                 if (delta?.content) {
-                  fullContent += delta.content;
-                  onChunk(fullContent);
+                  const content = delta.content;
+                  
+                  // Check if this looks like JSON tool call response
+                  if (content.includes('"tool_call"') || content.includes('"message"')) {
+                    jsonBuffer += content;
+                    
+                    // Try to parse complete JSON
+                    try {
+                      const jsonMatch = jsonBuffer.match(/\{[\s\S]*\}/);
+                      if (jsonMatch) {
+                        const toolResponse = JSON.parse(jsonMatch[0]);
+                        if (toolResponse.tool_call) {
+                          // Extract just the message part for display
+                          fullContent = toolResponse.message || '';
+                          onChunk(fullContent);
+                          
+                          // Store tool call for processing
+                          toolCalls.push({
+                            function: {
+                              name: toolResponse.tool_call.name,
+                              arguments: toolResponse.tool_call.parameters
+                            }
+                          });
+                          jsonBuffer = ''; // Clear buffer
+                          continue;
+                        }
+                      }
+                    } catch (e) {
+                      // JSON not complete yet, continue buffering
+                    }
+                  } else {
+                    // Regular content, not JSON
+                    fullContent += content;
+                    onChunk(fullContent);
+                  }
                 }
                 
                 if (delta?.tool_calls) {
