@@ -124,12 +124,11 @@ export class ConversationIndexer {
       }));
 
       // Create a context summary
-      let contextSummary = '';
-      if (relevantMemories.length > 0) {
-        contextSummary = `Relevant tidigare kontext:\n${relevantMemories
-          .map(memory => `- ${memory.content.substring(0, 100)}...`)
-          .join('\n')}`;
-      }
+      const contextSummary = relevantMemories.length > 0
+        ? `Hittade ${relevantMemories.length} relevanta kontext-minnen med genomsnittlig likhet ${
+            (relevantMemories.reduce((sum, m) => sum + m.similarity, 0) / relevantMemories.length).toFixed(2)
+          }`
+        : 'Ingen relevant kontext hittades';
 
       console.log('🔍 Relevant context found:', {
         userMessage: userMessage.substring(0, 50) + '...',
