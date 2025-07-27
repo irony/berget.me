@@ -156,8 +156,18 @@ export class BaseAPI {
                       if (jsonMatch) {
                         const toolResponse = JSON.parse(jsonMatch[0]);
                         if (toolResponse.tool_call) {
-                          // Extract just the message part for display
-                          fullContent = toolResponse.message || '';
+                          // Add visual indicator for memory tool usage
+                          const toolName = toolResponse.tool_call.name;
+                          let toolIcon = '';
+                          if (toolName === 'save_memory') {
+                            toolIcon = '💾 ';
+                          } else if (toolName === 'search_memory') {
+                            toolIcon = '🔍 ';
+                          }
+                          
+                          // Extract message and add tool indicator
+                          const message = toolResponse.message || '';
+                          fullContent = toolIcon + message;
                           onChunk(fullContent);
                           
                           // Store tool call for processing

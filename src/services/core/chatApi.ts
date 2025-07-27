@@ -138,6 +138,18 @@ export class ChatAPI extends BaseAPI {
         if (toolCall.function.name.startsWith('save_memory') || toolCall.function.name.startsWith('search_memory')) {
           toolResult = await MemoryToolsAPI.executeMemoryTool(toolCall);
           console.log('💾 Tool execution result:', toolResult);
+          
+          // Add visual feedback for successful tool usage
+          if (toolResult && toolResult.success) {
+            const toolIcon = toolCall.function.name === 'save_memory' ? '💾' : '🔍';
+            const toolFeedback = ` ${toolIcon}`;
+            
+            // Update the message content to include tool indicator
+            if (result.content && !result.content.includes(toolIcon)) {
+              result.content = toolIcon + ' ' + result.content;
+              onChunk(result.content);
+            }
+          }
         }
       }
     } else {
