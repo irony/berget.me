@@ -21,7 +21,7 @@ describe('ConversationStateBuilder', () => {
 
     const state = ConversationStateBuilder
       .create()
-      .withCurrentInput('Vad gör du idag?')
+      .withCurrentInput('Vad gör du idag?', new Date('2024-01-01T14:30:00'), new Date('2024-01-01T14:30:05'))
       .withConversationHistory(messages)
       .withTemporalContext(new Date('2024-01-01T14:30:00'))
       .withWindowState(true, new Date(), null)

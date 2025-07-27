@@ -66,7 +66,10 @@ describe('TimingService', () => {
   describe('analyzeTypingPatternsForPrompt', () => {
     it('ska generera beskrivning för långsam skrivning', () => {
       const pattern = {
-        keystrokeData: [],
+        keystrokeData: [
+          { char: 'h', timestamp: 1000, timeSinceLastChar: 0, position: 0 },
+          { char: 'e', timestamp: 1500, timeSinceLastChar: 500, position: 1 }
+        ],
         totalTypingTime: 10000,
         averageCharInterval: 500,
         pauseCount: 0,
@@ -85,7 +88,11 @@ describe('TimingService', () => {
 
     it('ska generera beskrivning för många pauser', () => {
       const pattern = {
-        keystrokeData: [],
+        keystrokeData: [
+          { char: 'h', timestamp: 1000, timeSinceLastChar: 0, position: 0 },
+          { char: 'e', timestamp: 1200, timeSinceLastChar: 200, position: 1 },
+          { char: 'j', timestamp: 2700, timeSinceLastChar: 1500, position: 2 }
+        ],
         totalTypingTime: 5000,
         averageCharInterval: 200,
         pauseCount: 5,

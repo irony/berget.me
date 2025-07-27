@@ -6,6 +6,19 @@ describe('VectorMemoryService', () => {
     // Clear localStorage before each test
     localStorage.clear();
     vi.clearAllMocks();
+    
+    // Mock localStorage properly
+    const mockStorage = {};
+    localStorage.getItem = vi.fn((key) => mockStorage[key] || null);
+    localStorage.setItem = vi.fn((key, value) => {
+      mockStorage[key] = value;
+    });
+    localStorage.removeItem = vi.fn((key) => {
+      delete mockStorage[key];
+    });
+    localStorage.clear = vi.fn(() => {
+      Object.keys(mockStorage).forEach(key => delete mockStorage[key]);
+    });
   });
 
   describe('saveMemory', () => {
