@@ -16,64 +16,61 @@ vi.mock('../../services/embeddingService', () => ({
       // Always ensure we have valid text input
       const safeText = text && typeof text === 'string' && text.length > 0 ? text : 'fallback text';
       
-      // Create a simple but deterministic embedding
-      const embedding = new Array(384).fill(0);
+      // Create a completely deterministic and valid embedding
+      const embedding = new Array(384);
       
-      // Use text hash for consistency
-      let hash = 0;
-      for (let i = 0; i < safeText.length; i++) {
-        hash = ((hash << 5) - hash + safeText.charCodeAt(i)) & 0xffffffff;
-      }
-      
-      // Generate embedding values
+      // Use simple character-based generation that's guaranteed to work
       for (let i = 0; i < 384; i++) {
-        let value = 0.1; // Safe base value
-        
-        // Add character-based patterns
         const charIndex = i % safeText.length;
         const charCode = safeText.charCodeAt(charIndex);
-        value += (charCode / 10000); // Very small contribution
         
-        // Add hash-based variation
-        value += Math.sin(i + hash * 0.001) * 0.1;
+        // Start with a safe base value
+        let value = 0.3;
         
-        // Add word-specific strong signals for better similarity
+        // Add character-based variation (very small to avoid overflow)
+        value += (charCode % 100) / 10000;
+        
+        // Add position-based variation
+        value += Math.sin(i * 0.01) * 0.1;
+        
+        // Add strong word-specific patterns for better similarity matching
         if (safeText.toLowerCase().includes('anna')) {
-          value += Math.sin(i * 0.1) * 0.4;
+          value += Math.sin(i * 0.05) * 0.3;
         }
         if (safeText.toLowerCase().includes('kaffe')) {
-          value += Math.cos(i * 0.1) * 0.4;
+          value += Math.cos(i * 0.05) * 0.3;
         }
         if (safeText.toLowerCase().includes('utvecklare')) {
-          value += Math.sin(i * 0.15) * 0.4;
+          value += Math.sin(i * 0.07) * 0.3;
         }
         if (safeText.toLowerCase().includes('typescript')) {
-          value += Math.cos(i * 0.15) * 0.4;
+          value += Math.cos(i * 0.07) * 0.3;
         }
         if (safeText.toLowerCase().includes('mår') || safeText.toLowerCase().includes('dåligt')) {
-          value += Math.sin(i * 0.2) * 0.4;
+          value += Math.sin(i * 0.09) * 0.3;
         }
         
-        // Clamp to safe range
-        embedding[i] = Math.max(-0.9, Math.min(0.9, value));
+        // Ensure value is always in valid range and not NaN
+        embedding[i] = Math.max(-0.8, Math.min(0.8, value));
+        
+        // Double-check for NaN
+        if (isNaN(embedding[i]) || !isFinite(embedding[i])) {
+          embedding[i] = 0.1;
+        }
       }
       
-      // Validate the embedding
-      const isValid = embedding.length === 384 && 
-                     embedding.every(v => isFinite(v) && !isNaN(v));
-      
-      if (!isValid) {
-        console.error('🧪 Generated invalid embedding, using fallback');
-        // Create safe fallback
-        for (let i = 0; i < 384; i++) {
-          embedding[i] = 0.1 + (i * 0.001);
+      // Final validation - ensure all values are valid
+      for (let i = 0; i < 384; i++) {
+        if (!isFinite(embedding[i]) || isNaN(embedding[i])) {
+          embedding[i] = 0.1 + (i * 0.0001); // Safe fallback with slight variation
         }
       }
       
       console.log('🧪 Mock embedding created:', { 
         length: embedding.length, 
         sample: embedding.slice(0, 3),
-        isValid,
+        hasNaN: embedding.some(v => isNaN(v)),
+        allFinite: embedding.every(v => isFinite(v)),
         range: [Math.min(...embedding), Math.max(...embedding)]
       });
       
@@ -200,8 +197,8 @@ describe('Memory Flow Integration Tests', () => {
         });
       });
       
-      // Vänta ytterligare för att säkerställa att asynkron minneslagring slutförs
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Vänta längre för att säkerställa att asynkron minneslagring slutförs
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // 5. Verifiera att reflektionen genererades korrekt
       expect(reflection).toBeTruthy();
