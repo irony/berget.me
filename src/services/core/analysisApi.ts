@@ -2,13 +2,13 @@ import { BaseAPI, ChatMessage } from './baseApi';
 
 export class AnalysisAPI extends BaseAPI {
   async sendAnalysisMessageWithJsonMode(messages: ChatMessage[]): Promise<string> {
-    return this.makeRequest(messages, 'llama-3.3-70b', true, {
+    return this.makeRequest(messages, 'llama-3.3-70b', false, {
       response_format: { type: 'json_object' }
     });
   }
 
   async sendReflectionAnalysisMessageWithJsonMode(messages: ChatMessage[]): Promise<string> {
-    return this.makeRequest(messages, 'llama-3.3-70b', true, {
+    return this.makeRequest(messages, 'llama-3.3-70b', false, {
       response_format: { type: 'json_object' }
     });
   }
@@ -86,7 +86,7 @@ Emotionell sammanfattning: En mening om AI:ns övergripande tillstånd`;
           role: 'user',
           content: hormonalAnalysisPrompt
         }
-      ], 'llama-3.3-70b', true, {
+      ], 'llama-3.3-70b', false, {
         response_format: { type: 'json_object' }
       });
       
@@ -159,7 +159,7 @@ conversationPace: "fast", "medium", "slow", "reflective"`;
           role: 'user',
           content: timingPrompt
         }
-      ], 'llama-3.3-70b', true, {
+      ], 'llama-3.3-70b', false, {
         response_format: { type: 'json_object' }
       });
       

@@ -4,6 +4,7 @@ import { bergetAPI } from './services/api';
 import { useConversationState } from './hooks/useConversationState';
 import { ReflectionPanel } from './components/ReflectionPanel';
 import { MemoryPanel } from './components/MemoryPanel';
+import { ConversationIndexer } from './services/conversationIndexer';
 import { Message } from './types/chat';
 import { StateAnalysis } from './types/conversationState';
 
@@ -191,11 +192,36 @@ function App() {
     let hasShownMessage = false;
     
     try {
+      // Search for relevant context before sending message
+      console.log('🔍 Searching for relevant context...');
+      const contextSearch = await ConversationIndexer.searchRelevantContext(
+        messageToSend,
+        messages,
+        3
+      );
+
       // Konvertera meddelanden till API-format
-      const apiMessages = [...messages, userMessage].map(msg => ({
+      let apiMessages = [...messages, userMessage].map(msg => ({
         role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
         content: msg.content
       }));
+
+      // Add relevant context to the conversation if found
+      if (contextSearch.relevantMemories.length > 0) {
+        console.log('💡 Adding relevant context to conversation:', contextSearch.relevantMemories.length, 'memories');
+        
+        // Insert context before the latest user message
+        const contextMessage = {
+          role: 'system' as const,
+          content: `RELEVANT TIDIGARE KONTEXT (för AI:ns förståelse):
+${contextSearch.contextSummary}
+
+Använd denna kontext för att ge mer personliga och relevanta svar, men nämn inte explicit att du "kommer ihåg" från tidigare såvida det inte är naturligt.`
+        };
+
+        // Insert context message before the last user message
+        apiMessages.splice(-1, 0, contextMessage);
+      }
 
       // Add simple emotional analysis to history
       // This is a simplified version - in a full implementation, this would also use LLM
@@ -258,7 +284,7 @@ function App() {
       };
       
       console.log('🚀 Starting API call with context...');
-      const responseData = await bergetAPI.sendMainChatMessageWithContextStreaming(apiMessages, contextWithTiming, onChunk, true); // Enable memory tools
+      const responseData = await bergetAPI.sendMainChatMessageWithContextStreaming(apiMessages, contextWithTiming, onChunk, true); // Enable memory search only
       
       console.log('📨 Response data received:', {
         contentLength: responseData.content?.length || 0,
@@ -301,12 +327,37 @@ function App() {
         };
         setMessages(prev => [...prev, assistantMessage]);
         console.log('✅ Final message added to state');
+
+        // Index the assistant message for future context
+        ConversationIndexer.indexAssistantMessage(assistantMessage);
       } else if (hasShownMessage) {
         console.log('✅ Message was already shown during streaming');
+        
+        // Index the assistant message that was shown during streaming
+        if (assistantMessageId) {
+          const finalAssistantMessage: Message = {
+            id: assistantMessageId,
+            content: streamBuffer,
+            sender: 'assistant',
+            timestamp: new Date(),
+            suggestedNextContactTime: responseData.suggestedNextContactTime,
+            conversationPace: responseData.conversationPace as any
+          };
+          ConversationIndexer.indexAssistantMessage(finalAssistantMessage);
+        }
       } else {
         console.log('⚠️ No message to show - streamBuffer empty:', streamBuffer);
         console.log('⚠️ Response from API:', response);
         // Don't show fallback messages - let user see the actual error
+      }
+
+      // Index the user message for future context
+      ConversationIndexer.indexUserMessage(userMessage);
+
+      // Index conversation context periodically (every 4 messages)
+      const updatedMessages = [...messages, userMessage];
+      if (updatedMessages.length % 4 === 0) {
+        ConversationIndexer.indexConversationContext(updatedMessages);
       }
 
       // Bestäm om vi ska skicka följdmeddelanden baserat på emotionell kontext
@@ -400,7 +451,7 @@ function App() {
       {/* Header */}
         <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center">
           <Bot className="w-6 h-6 text-blue-600 mr-3" />
-          <h1 className="text-lg font-semibold text-gray-900">Berget AI Chat</h1>
+          <h1 className="text-lg font-semibold text-gray-900">berget.me</h1>
           <div className="ml-auto flex items-center space-x-4">
             <button
               onClick={() => setShowReflectionPanel(!showReflectionPanel)}

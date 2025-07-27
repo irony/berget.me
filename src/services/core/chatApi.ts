@@ -56,8 +56,29 @@ export class ChatAPI extends BaseAPI {
     console.log('📋 EXACT SYSTEM PROMPT BEING SENT:');
     console.log(systemPrompt.substring(0, 500) + '...');
     
-    // Prepare tools if memory tools are enabled
-    const tools = useMemoryTools ? MemoryToolsAPI.getMemoryToolsForAPI() : undefined;
+    // Prepare tools if memory tools are enabled (only search, no save)
+    const tools = useMemoryTools ? [
+      {
+        type: 'function',
+        function: {
+          name: 'search_memory',
+          description: 'Sök i långtidsminnet efter information om användaren',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: { type: 'string', description: 'Sökfråga' },
+              limit: { type: 'number', default: 5, description: 'Max antal resultat' },
+              type_filter: { 
+                type: 'string', 
+                enum: ['conversation', 'reflection', 'insight', 'preference', 'fact'],
+                description: 'Filtrera efter typ'
+              }
+            },
+            required: ['query']
+          }
+        }
+      }
+    ] : undefined;
     
     console.log('🛠️ Tools prepared:', tools ? tools.length : 0);
     console.log('🛠️ Tools enabled:', useMemoryTools);
@@ -65,7 +86,7 @@ export class ChatAPI extends BaseAPI {
     
     // Debug: Log the exact request being sent
     console.log('🚀 API Request details:', {
-      model: 'mistralai/Magistral-Small-2506',
+      model: 'llama-3.3-70b',
       messagesCount: contextualMessages.length,
       hasTools: !!tools,
       toolsCount: tools?.length || 0,
@@ -116,7 +137,7 @@ export class ChatAPI extends BaseAPI {
     console.log('📋 Raw result object:', JSON.stringify(result, null, 2));
     
     // Log the COMPLETE response for debugging
-    this.logFullResponse(result, 'CHAT API');
+    console.log('🔍 FULL CHAT API RESPONSE:', JSON.stringify(result, null, 2));
     
     console.log('📝 Regular response content:', result.content.substring(0, 100) + '...');
     console.log('📝 Response length:', result.content.length);
@@ -128,16 +149,30 @@ export class ChatAPI extends BaseAPI {
       toolCalls: result.tool_calls
     });
     
-    // Handle tool calls if present
+    // Handle tool calls if present (only search_memory now)
     let toolResult = null;
     if (result.tool_calls && Array.isArray(result.tool_calls) && result.tool_calls.length > 0) {
       console.log('🛠️ Processing tool calls:', result.tool_calls.length);
       
       for (const toolCall of result.tool_calls) {
         console.log('🔧 Processing tool call:', toolCall);
-        if (toolCall.function.name.startsWith('save_memory') || toolCall.function.name.startsWith('search_memory')) {
+        if (toolCall.function.name === 'search_memory') {
+          // Only handle search_memory, not save_memory (that's handled by Reflection AI)
           toolResult = await MemoryToolsAPI.executeMemoryTool(toolCall);
-          console.log('💾 Tool execution result:', toolResult);
+          console.log('🔍 Search tool execution result:', toolResult);
+          
+          // Add visual feedback for successful tool usage
+          if (toolResult && toolResult.success) {
+            const toolIcon = '🔍';
+            
+            // Update the message content to include tool indicator
+            if (result.content && !result.content.includes(toolIcon)) {
+              result.content = toolIcon + ' ' + result.content;
+              onChunk(result.content);
+            }
+          }
+        } else {
+          console.log('🚫 Ignoring tool call (not search_memory):', toolCall.function.name);
         }
       }
     } else {

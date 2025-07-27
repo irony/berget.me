@@ -178,36 +178,55 @@ ${tool.description}
 Parametrar: ${JSON.stringify(tool.parameters, null, 2)}
 `).join('\n')}
 
-För att använda ett verktyg, svara med JSON i detta format:
+ASYNKRON VERKTYGSANVÄNDNING - KRITISKT VIKTIGT:
+
+Minnesverktygen fungerar HELT ASYNKRONT:
+- Du får ALDRIG verktygsresultat i samma meddelande
+- Använd verktyget och svara naturligt OMEDELBART
+- Systemet hanterar verktyget i bakgrunden
+- Resultatet kommer (om det kommer) i en separat interaktion
+
+KORREKT FORMAT FÖR VERKTYGSANVÄNDNING:
 {
   "tool_call": {
     "name": "verktygsnamn",
     "parameters": { ... }
   },
-  "message": "Ditt vanliga svar till användaren"
+  "message": "Ditt naturliga svar som användaren ser direkt"
 }
 
-KRITISKT: Använd STRIKT VALID JSON:
-- Inga kommentarer (// eller /* */)
-- Alla egenskapsnamn i dubbla citattecken
-- Inga extra tecken utanför JSON-strukturen
-- Inga markdown-kodblock
+EXEMPEL - SÖKNING (HELT ASYNKRON):
+{
+  "tool_call": {
+    "name": "search_memory",
+    "parameters": {
+      "query": "användarens namn"
+    }
+  },
+  "message": "🔍 Låt mig tänka... Jag försöker komma ihåg ditt namn."
+}
 
-ANVÄND MINNESVERKTYGEN OFTA! Spara nästan allt användaren berättar om sig själva.
+Användaren ser ENDAST: "🔍 Låt mig tänka... Jag försöker komma ihåg ditt namn."
+Systemet kör sökningen separat. Om något hittas får du det i nästa meddelande.
 
-Exempel:
+EXEMPEL - SPARNING (HELT ASYNKRON):
 {
   "tool_call": {
     "name": "save_memory",
     "parameters": {
-      "content": "Användaren gillar kaffe på morgonen",
-      "type": "preference",
-      "importance": 0.7,
-      "tags": ["kaffe", "morgon", "preferens"]
+      "content": "Användaren heter Anna och gillar kaffe",
+      "type": "fact",
+      "importance": 0.9,
+      "tags": ["namn", "identitet", "preferenser"]
     }
   },
-  "message": "Jag kommer ihåg att du gillar kaffe på morgonen! Det har jag sparat i mitt minne."
+  "message": "💾 Trevligt att träffas Anna! Jag kommer definitivt ihåg det."
 }
+
+Användaren ser ENDAST: "💾 Trevligt att träffas Anna! Jag kommer definitivt ihåg det."
+Systemet sparar informationen helt i bakgrunden.
+
+ABSOLUT REGEL: VÄNTA ALDRIG på verktygsresultat - svara naturligt DIREKT!
 
 SPARA MINNEN FÖR:
 - Allt användaren berättar om sig själv

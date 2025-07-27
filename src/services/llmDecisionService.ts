@@ -7,6 +7,11 @@ import { TimingService } from './timingService';
 
 export class LLMDecisionService {
   private static extractJSON(response: string): any {
+    if (!response || typeof response !== 'string') {
+      console.error('Invalid response for JSON extraction:', response);
+      return null;
+    }
+
     try {
       // Remove any markdown code blocks first
       const cleanResponse = response.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
@@ -31,12 +36,12 @@ export class LLMDecisionService {
           return JSON.parse(jsonMatch[0]);
         } catch (innerError) {
           console.error('Failed to parse extracted JSON:', innerError);
-          throw new Error(`Invalid JSON structure: ${innerError.message}`);
+          return null;
         }
       }
       
       console.error('No valid JSON found in response:', response);
-      throw new Error('No valid JSON found in response');
+      return null;
     }
   }
 
@@ -87,8 +92,15 @@ export class LLMDecisionService {
         }
       ];
       
-      bergetAPI.sendAnalysisMessageWithJsonMode(analysisMessages)
-        .then(response => {
+      const apiCall = bergetAPI.sendAnalysisMessageWithJsonMode(analysisMessages);
+      if (!apiCall || typeof apiCall.then !== 'function') {
+        console.error('API call returned invalid promise');
+        subscriber.next(this.getDefaultDecision());
+        subscriber.complete();
+        return;
+      }
+      
+      apiCall.then(response => {
           try {
             const decision = JSON.parse(response);
             
@@ -143,11 +155,12 @@ export class LLMDecisionService {
       const reflectionPrompt = PromptBuilder.buildReflectionPrompt(state);
 
       console.log('🚀 Sending reflection prompt to API...');
+      console.log('📋 Reflection prompt preview:', reflectionPrompt.substring(0, 200) + '...');
       
       const reflectionMessages = [
         {
           role: 'system' as const,
-          content: 'Du är en emotionellt intelligent AI som analyserar användarens känslor i realtid. Svara ALLTID med valid JSON enligt det format som begärs.'
+          content: 'Du är en emotionellt intelligent AI som analyserar användarens känslor i realtid OCH hanterar långtidsminnet. Svara ALLTID med valid JSON enligt det format som begärs. Använd ALDRIG markdown-kodblock. Svara ENDAST med JSON, inget annat text.'
         },
         {
           role: 'user' as const,
@@ -155,51 +168,109 @@ export class LLMDecisionService {
         }
       ];
       
-      bergetAPI.sendReflectionAnalysisMessageWithJsonMode(reflectionMessages)
-        .then(response => {
-          console.log('📨 Raw API response for reflection:', response.substring(0, 200) + '...');
+      const apiCall = bergetAPI.sendReflectionAnalysisMessageWithJsonMode(reflectionMessages);
+      if (!apiCall || typeof apiCall.then !== 'function') {
+        console.error('API call returned invalid promise');
+        subscriber.next(null);
+        subscriber.complete();
+        return;
+      }
+      
+      apiCall.then(response => {
+          console.log('📨 Raw API response for reflection (first 200 chars):', response.substring(0, 200));
+          console.log('📨 Full response length:', response.length);
+          
+          // Check if response is an error message
+          if (response.includes('🔑') || response.includes('API-nyckel') || response.includes('API-fel')) {
+            console.error('❌ API returned error message:', response);
+            subscriber.next(null);
+            subscriber.complete();
+            return;
+          }
+          
+          // Check if response is empty or too short
+          if (!response || response.trim().length < 10) {
+            console.error('❌ API returned empty or very short response:', response);
+            subscriber.next(null);
+            subscriber.complete();
+            return;
+          }
+          
           try {
-            const reflection = JSON.parse(response);
+            // Try to extract and parse JSON from response
+            const reflection = this.extractJSON(response);
             
-            if (!reflection) {
-              console.error('❌ Failed to parse reflection - empty response');
-              subscriber.next({
-                id: Date.now().toString(),
-                content: 'Jag reflekterar över det du skriver...',
-                timestamp: new Date(),
-                isVisible: true,
-                emotions: ['🤔'],
-                emotionalState: 'Fundersam'
-              });
+            if (!reflection || typeof reflection !== 'object') {
+              console.error('❌ Failed to parse reflection - invalid JSON structure:', reflection);
+              console.error('❌ Original response:', response);
+              subscriber.next(null);
               subscriber.complete();
               return;
             }
             
             console.log('✅ Parsed reflection JSON:', reflection);
             
+            // Handle memory action if present
+            if (reflection.memoryAction && reflection.memoryAction.shouldSave) {
+              console.log('💾 Reflection AI wants to save memory:', reflection.memoryAction);
+              
+              // Import and use VectorMemoryService to save the memory
+              import('../services/vectorMemory').then(({ VectorMemoryService }) => {
+                VectorMemoryService.saveMemory(
+                  reflection.memoryAction.content,
+                  reflection.memoryAction.type,
+                  reflection.memoryAction.importance,
+                  reflection.memoryAction.tags,
+                  `Reflection AI: ${reflection.memoryAction.reasoning}`
+                ).then(id => {
+                  console.log('💾 Memory saved by Reflection AI:', id);
+                }).catch(error => {
+                  console.error('❌ Failed to save memory from Reflection AI:', error);
+                });
+              });
+            } else if (reflection.memoryAction) {
+              console.log('🚫 Reflection AI decided not to save memory:', reflection.memoryAction.reasoning);
+            }
+            
+            // Validate required fields with more detailed logging
+            if (!reflection.content) {
+              console.error('❌ Reflection missing content field:', reflection);
+              subscriber.next(null);
+              subscriber.complete();
+              return;
+            }
+            
+            if (!reflection.emotionalState) {
+              console.error('❌ Reflection missing emotionalState field:', reflection);
+              subscriber.next(null);
+              subscriber.complete();
+              return;
+            }
+            
+            // Ensure emotions is an array
+            const emotions = Array.isArray(reflection.emotions) ? reflection.emotions : ['🤔'];
+            if (emotions.length === 0) {
+              emotions.push('🤔');
+            }
+            
             const reflectionMessage: ReflectionMessage = {
               id: Date.now().toString(),
-              content: reflection.content || 'Jag reflekterar över det du skriver...',
+              content: reflection.content,
               timestamp: new Date(),
               isVisible: true,
-              emotions: Array.isArray(reflection.emotions) ? reflection.emotions : ['🤔'],
-              emotionalState: reflection.emotionalState || 'Fundersam'
+              emotions: emotions,
+              emotionalState: reflection.emotionalState
             };
             
             console.log('🎯 Final reflection message:', reflectionMessage);
             subscriber.next(reflectionMessage);
             subscriber.complete();
           } catch (error) {
-            console.error('❌ Failed to parse reflection JSON:', error, 'Response:', response);
-            console.log('📄 Raw response that failed to parse:', response);
-            subscriber.next({
-              id: Date.now().toString(),
-              content: 'Jag reflekterar över det du skriver...',
-              timestamp: new Date(),
-              isVisible: true,
-              emotions: ['🤔'],
-              emotionalState: 'Fundersam'
-            });
+            console.error('❌ Failed to parse reflection JSON:', error);
+            console.error('📄 Raw response that failed to parse:', response);
+            console.error('📄 Response type:', typeof response);
+            console.error('📄 Response constructor:', response.constructor.name);
+            subscriber.next(null);
             subscriber.complete();
           }
         })
@@ -229,7 +300,7 @@ export class LLMDecisionService {
       actionType: 'wait',
       priority: 'low',
       timing: 2000,
-      reasoning: 'Fel i analysprocessen - väntar',
+      reasoning: 'Konversationen flyter naturligt - väntar',
       confidence: 0.1
     };
   }
