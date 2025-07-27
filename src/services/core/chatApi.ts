@@ -116,7 +116,7 @@ export class ChatAPI extends BaseAPI {
     console.log('📋 Raw result object:', JSON.stringify(result, null, 2));
     
     // Log the COMPLETE response for debugging
-    this.logFullResponse(result, 'CHAT API');
+    console.log('🔍 FULL CHAT API RESPONSE:', JSON.stringify(result, null, 2));
     
     console.log('📝 Regular response content:', result.content.substring(0, 100) + '...');
     console.log('📝 Response length:', result.content.length);
