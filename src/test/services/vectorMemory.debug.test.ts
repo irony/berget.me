@@ -3,7 +3,7 @@ import { VectorMemoryService } from '../../services/vectorMemory';
 import { VectorDatabase } from '../../services/vectorDatabase';
 import { EmbeddingService } from '../../services/embeddingService';
 
-// Mock embedding service med enklare, mer förutsägbara embeddings
+// Mock embedding service med mer realistiska embeddings
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
@@ -14,33 +14,41 @@ vi.mock('../../services/embeddingService', () => ({
         return Promise.resolve(new Array(384).fill(0.1));
       }
       
-      // Skapa mycket enkla embeddings som garanterat ger hög similarity för samma ord
+      // Skapa deterministiska men unika embeddings
       const embedding = new Array(384).fill(0);
       
-      // Använd enkla mönster baserat på ord i texten
-      const words = text.toLowerCase().split(' ');
-      console.log('🧪 DEBUG: Words found:', words);
+      // Använd text-hash för att skapa unik bas
+      const textHash = text.split('').reduce((hash, char) => {
+        return ((hash << 5) - hash + char.charCodeAt(0)) & 0xffffffff;
+      }, 0);
       
-      words.forEach((word, wordIndex) => {
-        // Ge varje ord en unik "signatur" i embedding-vektorn
-        const startIndex = (wordIndex * 50) % 384;
-        for (let i = 0; i < 50 && startIndex + i < 384; i++) {
-          if (word === 'kaffe') {
-            embedding[startIndex + i] = 0.9; // Stark signal för "kaffe"
-          } else if (word === 'användaren') {
-            embedding[startIndex + i] = 0.8; // Stark signal för "användaren"
-          } else if (word === 'utvecklare') {
-            embedding[startIndex + i] = 0.7; // Stark signal för "utvecklare"
-          } else {
-            // Svagare signal för andra ord
-            embedding[startIndex + i] = 0.3 + (word.charCodeAt(0) % 10) * 0.05;
-          }
+      // Fyll embedding med värden baserat på text
+      for (let i = 0; i < 384; i++) {
+        const charIndex = i % text.length;
+        const charCode = text.charCodeAt(charIndex);
+        
+        // Bas-värde från tecken
+        let value = (charCode / 1000) + 0.1;
+        
+        // Lägg till text-specifika mönster
+        value += Math.sin(i * 0.01 + textHash * 0.001) * 0.2;
+        value += Math.cos(i * 0.02 + text.length * 0.01) * 0.1;
+        
+        // Lägg till ord-specifika signaler (men svagare än tidigare)
+        if (text.toLowerCase().includes('kaffe')) {
+          value += Math.sin(i * 0.05) * 0.3;
         }
-      });
+        if (text.toLowerCase().includes('te')) {
+          value += Math.cos(i * 0.07) * 0.3;
+        }
+        if (text.toLowerCase().includes('användaren')) {
+          value += Math.sin(i * 0.03) * 0.2;
+        }
+        
+        embedding[i] = Math.max(-1, Math.min(1, value));
+      }
       
-      console.log('🧪 DEBUG: Created embedding with signals at positions:', 
-        embedding.map((val, idx) => val > 0.5 ? idx : null).filter(x => x !== null).slice(0, 10)
-      );
+      console.log('🧪 DEBUG: Created embedding with hash:', textHash, 'sample:', embedding.slice(0, 5));
       
       return Promise.resolve(embedding);
     }),
@@ -161,9 +169,11 @@ describe('VectorMemory Debug Tests', () => {
       
       console.log('🧪 TEST: Similarity kaffe-kaffe:', sim1_2);
       console.log('🧪 TEST: Similarity kaffe-te:', sim1_3);
+      console.log('🧪 TEST: Embedding1 sample:', embedding1.slice(0, 5));
+      console.log('🧪 TEST: Embedding3 sample:', embedding3.slice(0, 5));
       
       expect(sim1_2).toBe(1.0); // Identiska embeddings
-      expect(sim1_3).toBeLessThan(1.0); // Olika embeddings
+      expect(sim1_3).toBeLessThan(0.99); // Olika embeddings (mer realistisk threshold)
       expect(sim1_3).toBeGreaterThan(0); // Men fortfarande positiv similarity
     });
   });
