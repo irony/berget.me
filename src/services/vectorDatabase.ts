@@ -33,20 +33,40 @@ export class VectorDatabase {
 
   // Cosine similarity calculation
   private static cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) return 0;
+    if (!a || !b || !Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+      console.warn('⚠️ Invalid vectors for similarity calculation:', { 
+        aLength: a?.length, 
+        bLength: b?.length,
+        aIsArray: Array.isArray(a),
+        bIsArray: Array.isArray(b)
+      });
+      return 0;
+    }
     
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;
     
     for (let i = 0; i < a.length; i++) {
+      if (isNaN(a[i]) || isNaN(b[i])) {
+        console.warn('⚠️ NaN values in vectors at index', i);
+        continue;
+      }
       dotProduct += a[i] * b[i];
       normA += a[i] * a[i];
       normB += b[i] * b[i];
     }
     
     const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
-    return magnitude > 0 ? dotProduct / magnitude : 0;
+    const similarity = magnitude > 0 ? dotProduct / magnitude : 0;
+    
+    // Ensure similarity is in valid range
+    if (isNaN(similarity)) {
+      console.warn('⚠️ NaN similarity calculated');
+      return 0;
+    }
+    
+    return Math.max(-1, Math.min(1, similarity));
   }
 
   // Euclidean distance calculation
@@ -69,7 +89,10 @@ export class VectorDatabase {
 
   // Initialize or load index vectors
   private static async getIndexVectors(): Promise<number[][]> {
+    console.log('📊 Getting index vectors, current state:', !!this.indexVectors);
+    
     if (this.indexVectors) {
+      console.log('✅ Using cached index vectors:', this.indexVectors.length);
       return this.indexVectors;
     }
 
@@ -77,11 +100,18 @@ export class VectorDatabase {
       const stored = localStorage.getItem(this.INDEX_VECTORS_KEY);
       if (stored) {
         this.indexVectors = JSON.parse(stored);
-        console.log('📊 Index vectors laddade från localStorage');
-        return this.indexVectors!;
+        console.log('📊 Index vectors laddade från localStorage:', this.indexVectors?.length);
+        
+        // Validate loaded vectors
+        if (this.indexVectors && Array.isArray(this.indexVectors) && this.indexVectors.length > 0) {
+          return this.indexVectors;
+        } else {
+          console.warn('⚠️ Loaded index vectors are invalid, regenerating');
+          this.indexVectors = null;
+        }
       }
     } catch (error) {
-      console.warn('⚠️ Kunde inte ladda index vectors från localStorage');
+      console.warn('⚠️ Kunde inte ladda index vectors från localStorage:', error);
     }
 
     // Generate new index vectors using sample texts
@@ -95,19 +125,42 @@ export class VectorDatabase {
     ];
 
     try {
-      this.indexVectors = await Promise.all(
-        sampleTexts.map(text => EmbeddingService.getEmbedding(text))
+      console.log('🚀 Generating embeddings for index vectors...');
+      const embeddings = await Promise.all(
+        sampleTexts.map(async (text, i) => {
+          console.log(`📝 Generating embedding ${i + 1}/5 for: "${text.substring(0, 30)}..."`);
+          const embedding = await EmbeddingService.getEmbedding(text);
+          console.log(`✅ Embedding ${i + 1} generated:`, { 
+            length: embedding.length, 
+            sample: embedding.slice(0, 3),
+            hasNaN: embedding.some(val => isNaN(val))
+          });
+          return embedding;
+        })
       );
+      
+      this.indexVectors = embeddings;
+      console.log('✅ All index vectors generated successfully:', this.indexVectors.length);
     } catch (error) {
-      console.warn('⚠️ Kunde inte skapa index vectors, använder fallback');
+      console.warn('⚠️ Kunde inte skapa index vectors, använder fallback:', error);
       // Fallback to simple mock vectors for tests
       this.indexVectors = sampleTexts.map((text, i) => {
         const embedding = new Array(384).fill(0);
         for (let j = 0; j < Math.min(text.length, 384); j++) {
-          embedding[j] = (text.charCodeAt(j) / 1000) + Math.sin(j + i) * 0.1;
+          embedding[j] = (text.charCodeAt(j) / 1000) + Math.sin(j + i) * 0.1 + 0.1;
         }
+        console.log(`🔧 Fallback embedding ${i + 1} created:`, { 
+          length: embedding.length, 
+          sample: embedding.slice(0, 3) 
+        });
         return embedding;
       });
+    }
+
+    // Validate generated vectors
+    if (!this.indexVectors || !Array.isArray(this.indexVectors) || this.indexVectors.length === 0) {
+      console.error('❌ Failed to generate valid index vectors');
+      throw new Error('Failed to generate index vectors');
     }
 
     // Store for future use
@@ -115,7 +168,7 @@ export class VectorDatabase {
       localStorage.setItem(this.INDEX_VECTORS_KEY, JSON.stringify(this.indexVectors));
       console.log('💾 Index vectors sparade till localStorage');
     } catch (error) {
-      console.warn('⚠️ Kunde inte spara index vectors till localStorage');
+      console.warn('⚠️ Kunde inte spara index vectors till localStorage:', error);
     }
 
     return this.indexVectors;
@@ -130,13 +183,30 @@ export class VectorDatabase {
     context?: string
   ): Promise<string> {
     try {
+      console.log('💾 Saving vector entry:', { content: content.substring(0, 50) + '...', type, importance });
+      
       const embedding = await EmbeddingService.getEmbedding(content);
+      console.log('🔢 Embedding received:', { 
+        isArray: Array.isArray(embedding), 
+        length: embedding?.length, 
+        hasNaN: embedding?.some(val => isNaN(val)),
+        sample: embedding?.slice(0, 3)
+      });
+      
       if (!embedding || !Array.isArray(embedding) || embedding.length === 0 || embedding.some(val => isNaN(val))) {
-        console.error('Invalid embedding returned from service:', embedding);
+        console.error('❌ Invalid embedding returned from service:', embedding);
         throw new Error('Invalid embedding returned from service');
       }
+      
       const indexVectors = await this.getIndexVectors();
+      console.log('📊 Index vectors status:', { 
+        isArray: Array.isArray(indexVectors), 
+        length: indexVectors?.length,
+        initialized: !!this.indexVectors
+      });
+      
       if (!indexVectors || !Array.isArray(indexVectors) || indexVectors.length === 0) {
+        console.error('❌ Invalid index vectors:', indexVectors);
         throw new Error('Invalid index vectors');
       }
 
@@ -196,17 +266,42 @@ export class VectorDatabase {
     typeFilter?: VectorEntry['metadata']['type']
   ): Promise<VectorSearchResult[]> {
     try {
+      console.log('🔍 Starting vector search:', { 
+        query: query.substring(0, 50) + '...', 
+        limit, 
+        minSimilarity, 
+        typeFilter 
+      });
+      
       const queryEmbedding = await EmbeddingService.getEmbedding(query);
+      console.log('🔢 Query embedding:', { 
+        isArray: Array.isArray(queryEmbedding), 
+        length: queryEmbedding?.length,
+        sample: queryEmbedding?.slice(0, 3)
+      });
+      
       if (!queryEmbedding || !Array.isArray(queryEmbedding)) {
-        console.error('Invalid query embedding');
+        console.error('❌ Invalid query embedding:', queryEmbedding);
         return [];
       }
+      
       const indexVectors = await this.getIndexVectors();
       if (!indexVectors || !Array.isArray(indexVectors)) {
-        console.error('Invalid index vectors');
+        console.error('❌ Invalid index vectors for search:', indexVectors);
         return [];
       }
+      
       const entries = this.loadEntries();
+      console.log('📚 Loaded entries for search:', { 
+        totalEntries: entries.length,
+        typeFilter,
+        filteredCount: typeFilter ? entries.filter(e => e.metadata.type === typeFilter).length : entries.length
+      });
+      
+      if (entries.length === 0) {
+        console.log('⚠️ No entries found in database');
+        return [];
+      }
 
       // Use index-based search for better performance
       const candidates = new Set<VectorEntry>();
@@ -230,26 +325,46 @@ export class VectorDatabase {
           .forEach(entry => candidates.add(entry));
       }
 
-      // Calculate similarities and distances
+      // Calculate similarities and distances for all candidates
       const results: VectorSearchResult[] = Array.from(candidates)
         .map(entry => {
           const similarity = this.cosineSimilarity(queryEmbedding, entry.embedding);
           const distance = this.euclideanDistance(queryEmbedding, entry.embedding);
+          
+          console.log('📊 Similarity calculation:', {
+            entryId: entry.id,
+            content: entry.content.substring(0, 30) + '...',
+            similarity: similarity.toFixed(3),
+            distance: distance.toFixed(3),
+            passesThreshold: similarity >= minSimilarity
+          });
+          
           return {
             entry,
             similarity,
             distance
           };
         })
-        .filter(result => result.similarity >= minSimilarity)
+        .filter(result => {
+          const passes = result.similarity >= minSimilarity;
+          if (!passes) {
+            console.log('❌ Filtered out:', {
+              similarity: result.similarity.toFixed(3),
+              threshold: minSimilarity,
+              content: result.entry.content.substring(0, 30) + '...'
+            });
+          }
+          return passes;
+        })
         .sort((a, b) => b.similarity - a.similarity) // Sort by similarity (highest first)
         .slice(0, limit);
 
-      console.log('🔍 Vector search:', { 
+      console.log('✅ Vector search completed:', { 
         query: query.substring(0, 30) + '...', 
-        results: results.length,
-        topSimilarity: results[0]?.similarity,
-        candidatesChecked: candidates.size
+        totalCandidates: candidates.size,
+        resultsAfterFilter: results.length,
+        topSimilarity: results[0]?.similarity?.toFixed(3),
+        allSimilarities: results.map(r => r.similarity.toFixed(3))
       });
 
       return results;
