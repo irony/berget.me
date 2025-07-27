@@ -16,56 +16,64 @@ vi.mock('../../services/embeddingService', () => ({
       // Always ensure we have valid text input
       const safeText = text && typeof text === 'string' && text.length > 0 ? text : 'fallback text';
       
-      // Create a completely deterministic embedding that's always valid
-      const embedding = new Array(384);
+      // Create a simple but deterministic embedding
+      const embedding = new Array(384).fill(0);
       
-      // Use simple character-based generation that's guaranteed to work
-      for (let i = 0; i < 384; i++) {
-        const charIndex = i % safeText.length;
-        const charCode = safeText.charCodeAt(charIndex);
-        
-        // Simple but effective embedding generation
-        let value = 0.5; // Safe base value
-        
-        // Add character-based variation
-        value += (charCode / 1000) * 0.3; // Scale down to prevent overflow
-        
-        // Add position-based variation
-        value += Math.sin(i * 0.01) * 0.2;
-        
-        // Add text-specific patterns for better similarity matching
-        if (safeText.toLowerCase().includes('anna')) {
-          value += Math.sin(i * 0.05) * 0.3;
-        }
-        if (safeText.toLowerCase().includes('kaffe')) {
-          value += Math.cos(i * 0.05) * 0.3;
-        }
-        if (safeText.toLowerCase().includes('utvecklare')) {
-          value += Math.sin(i * 0.07) * 0.3;
-        }
-        if (safeText.toLowerCase().includes('typescript')) {
-          value += Math.cos(i * 0.07) * 0.3;
-        }
-        if (safeText.toLowerCase().includes('mår') || safeText.toLowerCase().includes('dåligt')) {
-          value += Math.sin(i * 0.09) * 0.3;
-        }
-        
-        // Ensure value is always in valid range [-1, 1]
-        embedding[i] = Math.max(-1, Math.min(1, value));
+      // Use text hash for consistency
+      let hash = 0;
+      for (let i = 0; i < safeText.length; i++) {
+        hash = ((hash << 5) - hash + safeText.charCodeAt(i)) & 0xffffffff;
       }
       
-      // Final validation - ensure no NaN or infinite values
+      // Generate embedding values
       for (let i = 0; i < 384; i++) {
-        if (!isFinite(embedding[i]) || isNaN(embedding[i])) {
-          embedding[i] = 0.1; // Safe fallback
+        let value = 0.1; // Safe base value
+        
+        // Add character-based patterns
+        const charIndex = i % safeText.length;
+        const charCode = safeText.charCodeAt(charIndex);
+        value += (charCode / 10000); // Very small contribution
+        
+        // Add hash-based variation
+        value += Math.sin(i + hash * 0.001) * 0.1;
+        
+        // Add word-specific strong signals for better similarity
+        if (safeText.toLowerCase().includes('anna')) {
+          value += Math.sin(i * 0.1) * 0.4;
+        }
+        if (safeText.toLowerCase().includes('kaffe')) {
+          value += Math.cos(i * 0.1) * 0.4;
+        }
+        if (safeText.toLowerCase().includes('utvecklare')) {
+          value += Math.sin(i * 0.15) * 0.4;
+        }
+        if (safeText.toLowerCase().includes('typescript')) {
+          value += Math.cos(i * 0.15) * 0.4;
+        }
+        if (safeText.toLowerCase().includes('mår') || safeText.toLowerCase().includes('dåligt')) {
+          value += Math.sin(i * 0.2) * 0.4;
+        }
+        
+        // Clamp to safe range
+        embedding[i] = Math.max(-0.9, Math.min(0.9, value));
+      }
+      
+      // Validate the embedding
+      const isValid = embedding.length === 384 && 
+                     embedding.every(v => isFinite(v) && !isNaN(v));
+      
+      if (!isValid) {
+        console.error('🧪 Generated invalid embedding, using fallback');
+        // Create safe fallback
+        for (let i = 0; i < 384; i++) {
+          embedding[i] = 0.1 + (i * 0.001);
         }
       }
       
       console.log('🧪 Mock embedding created:', { 
         length: embedding.length, 
         sample: embedding.slice(0, 3),
-        hasNaN: embedding.some(v => isNaN(v)),
-        allFinite: embedding.every(v => isFinite(v)),
+        isValid,
         range: [Math.min(...embedding), Math.max(...embedding)]
       });
       
@@ -178,7 +186,7 @@ describe('Memory Flow Integration Tests', () => {
       });
 
       // 4. Vänta på att reflektionen slutförs och eventuell minneslagring
-      await new Promise(resolve => {
+      const reflectionResult = await new Promise(resolve => {
         LLMDecisionService.generateReflection(state).subscribe({
           next: (reflection) => {
             console.log('🧪 Reflection received:', reflection);
@@ -190,6 +198,9 @@ describe('Memory Flow Integration Tests', () => {
           }
         });
       });
+      
+      // Vänta ytterligare för att säkerställa att asynkron minneslagring slutförs
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // 5. Verifiera att reflektionen genererades korrekt
       expect(reflection).toBeTruthy();
@@ -274,25 +285,22 @@ describe('Memory Flow Integration Tests', () => {
         }
       ];
 
-      // 2. Indexera meddelandena
+      // 2. Indexera meddelandena och vänta på att de slutförs
+      const indexPromises = [];
       for (const message of messages) {
         if (message.sender === 'user') {
-          await ConversationIndexer.indexUserMessage(message);
+          indexPromises.push(ConversationIndexer.indexUserMessage(message));
         } else {
-          await ConversationIndexer.indexAssistantMessage(message);
+          indexPromises.push(ConversationIndexer.indexAssistantMessage(message));
         }
       }
 
       // 3. Indexera konversationskontext
-      await ConversationIndexer.indexConversationContext(messages);
+      indexPromises.push(ConversationIndexer.indexConversationContext(messages));
 
       // 4. Vänta på att alla indexeringsoperationer slutförs
+      await Promise.all(indexPromises);
       await ConversationIndexer.processQueue();
-      
-      // Vänta tills kön är helt tom
-      while (ConversationIndexer.getQueueSize() > 0) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
 
       // 5. Verifiera att meddelanden indexerades
       const allEntries = VectorDatabase.getAllEntries();
@@ -324,18 +332,14 @@ describe('Memory Flow Integration Tests', () => {
         }
       ];
 
-      // 2. Indexera gamla meddelanden
-      for (const message of oldMessages) {
-        await ConversationIndexer.indexUserMessage(message);
-      }
+      // 2. Indexera gamla meddelanden och vänta på att de slutförs
+      const indexPromises = oldMessages.map(message => 
+        ConversationIndexer.indexUserMessage(message)
+      );
 
       // 3. Vänta på att indexeringen slutförs
+      await Promise.all(indexPromises);
       await ConversationIndexer.processQueue();
-      
-      // Vänta tills kön är helt tom
-      while (ConversationIndexer.getQueueSize() > 0) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
 
       // 4. Sök efter relevant kontext för nytt meddelande
       const newMessage = 'Kan du hjälpa mig med TypeScript-problem?';
