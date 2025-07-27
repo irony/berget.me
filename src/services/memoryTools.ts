@@ -178,24 +178,21 @@ ${tool.description}
 Parametrar: ${JSON.stringify(tool.parameters, null, 2)}
 `).join('\n')}
 
-För att använda ett verktyg, svara med JSON i detta format:
+KRITISKT: När du använder verktyg, formatera svaret så här:
 {
   "tool_call": {
     "name": "verktygsnamn",
     "parameters": { ... }
   },
-  "message": "Ditt vanliga svar till användaren"
+  "message": "ENDAST detta meddelande visas för användaren - inget annat!"
 }
 
-KRITISKT: Använd STRIKT VALID JSON:
-- Inga kommentarer (// eller /* */)
-- Alla egenskapsnamn i dubbla citattecken
-- Inga extra tecken utanför JSON-strukturen
-- Inga markdown-kodblock
+ABSOLUT REGEL: Användaren ser ENDAST "message"-delen!
+- JSON-strukturen är helt osynlig för användaren
+- De ser bara det naturliga meddelandet
+- Lägg till 💾 eller 🔍 ikoner i meddelandet för att visa minnesanvändning
 
-ANVÄND MINNESVERKTYGEN OFTA! Spara nästan allt användaren berättar om sig själva.
-
-Exempel:
+KORREKT EXEMPEL:
 {
   "tool_call": {
     "name": "save_memory",
@@ -206,8 +203,10 @@ Exempel:
       "tags": ["kaffe", "morgon", "preferens"]
     }
   },
-  "message": "Jag kommer ihåg att du gillar kaffe på morgonen! Det har jag sparat i mitt minne."
+  "message": "💾 Jag kommer ihåg att du gillar kaffe på morgonen!"
 }
+
+Användaren ser bara: "💾 Jag kommer ihåg att du gillar kaffe på morgonen!"
 
 SPARA MINNEN FÖR:
 - Allt användaren berättar om sig själv

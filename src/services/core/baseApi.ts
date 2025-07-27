@@ -165,7 +165,7 @@ export class BaseAPI {
                             toolIcon = '🔍 ';
                           }
                           
-                          // Extract message and add tool indicator
+                          // Extract message and add tool indicator - HIDE the JSON completely
                           const message = toolResponse.message || '';
                           fullContent = toolIcon + message;
                           onChunk(fullContent);
@@ -183,6 +183,8 @@ export class BaseAPI {
                       }
                     } catch (e) {
                       // JSON not complete yet, continue buffering
+                      // Don't show partial JSON to user
+                      continue;
                     }
                   } else {
                     // Regular content, not JSON
