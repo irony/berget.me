@@ -17,7 +17,7 @@ export interface MemorySearchResult {
 }
 
 export class VectorMemoryService {
-  private static readonly STORAGE_KEY = 'berget_ai_memory';
+  private static readonly STORAGE_KEY = 'berget_me_memory';
   private static readonly MAX_ENTRIES = 1000;
   private static readonly EMBEDDING_DIM = 384; // Simulated embedding dimension
 

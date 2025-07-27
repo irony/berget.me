@@ -400,7 +400,7 @@ function App() {
       {/* Header */}
         <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center">
           <Bot className="w-6 h-6 text-blue-600 mr-3" />
-          <h1 className="text-lg font-semibold text-gray-900">Berget AI Chat</h1>
+          <h1 className="text-lg font-semibold text-gray-900">berget.me</h1>
           <div className="ml-auto flex items-center space-x-4">
             <button
               onClick={() => setShowReflectionPanel(!showReflectionPanel)}

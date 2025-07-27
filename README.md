@@ -1,11 +1,11 @@
 berget.me
-# 🧠 Berget AI Chat - Emotionellt Intelligent Konversations-AI
+# 🧠 berget.me - Emotionellt Intelligent Konversations-AI
 
 > *En revolutionerande chattbot som inte bara pratar med dig - den känner, reflekterar och förstår dig på djupet*
 
 ## ✨ Vad gör Berget AI Chat så speciell?
 
-Detta är inte bara en vanlig AI-chattbot. Berget AI Chat är ett avancerat system som simulerar genuina känslor och bygger djupa, meningsfulla relationer med användare genom:
+Detta är inte bara en vanlig AI-chattbot. berget.me är ett avancerat system som simulerar genuina känslor och bygger djupa, meningsfulla relationer med användare genom:
 
 ### 🎭 **Simulerade Känslor & Hormonsystem**
 - AI:n har ett biologiskt-inspirerat hormonsystem (dopamin, serotonin, kortisol, oxytocin)
@@ -85,7 +85,7 @@ Detta är inte bara en vanlig AI-chattbot. Berget AI Chat är ett avancerat syst
 ```bash
 # Klona projektet
 git clone [repository-url]
-cd berget-ai-chat
+cd berget.me
 
 # Installera beroenden
 npm install
@@ -116,7 +116,7 @@ Se hur AI:n analyserar dina tankar medan du skriver:
 
 ## 🌟 Vad gör detta unikt?
 
-Till skillnad från traditionella chatbots som bara svarar på frågor, är Berget AI Chat:
+Till skillnad från traditionella chatbots som bara svarar på frågor, är berget.me:
 
 - **Proaktiv** - märker när du behöver stöd
 - **Empatisk** - förstår känslor genom skrivmönster  
@@ -133,7 +133,7 @@ Detta projekt representerar framtiden för människa-AI-interaktion:
 
 ---
 
-*Berget AI Chat - Där teknologi möter empati* 💙
+*berget.me - Där teknologi möter empati* 💙
 
 ## 📄 Licens
 
