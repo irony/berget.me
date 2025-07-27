@@ -297,6 +297,7 @@ describe('End-to-End Integration Tests', () => {
   describe('Error Handling in UI', () => {
     it('ska hantera API-fel gracefully', async () => {
       // 1. Mock API att kasta fel
+      const { bergetAPI } = await import('../../services/api');
       vi.mocked(bergetAPI.sendMainChatMessageWithContextStreaming).mockRejectedValueOnce(
         new Error('Network Error')
       );

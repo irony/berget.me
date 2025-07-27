@@ -6,8 +6,12 @@ import { VectorDatabase } from '../../services/vectorDatabase';
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
-      if (!text || text.length === 0) {
-        return Promise.resolve(new Array(384).fill(0.1));
+      if (!text || typeof text !== 'string' || text.length === 0) {
+        const fallbackEmbedding = new Array(384).fill(0);
+        for (let i = 0; i < 384; i++) {
+          fallbackEmbedding[i] = 0.1 + (i * 0.001);
+        }
+        return Promise.resolve(fallbackEmbedding);
       }
       
       const embedding = new Array(384).fill(0);
@@ -16,7 +20,10 @@ vi.mock('../../services/embeddingService', () => ({
       }
       
       // Ensure we have a valid embedding with some variance
-      const validEmbedding = embedding.map((val, i) => val + (i * 0.001));
+      const validEmbedding = embedding.map((val, i) => {
+        const finalVal = val + (i * 0.001) + (text.length * 0.0001) + 0.1;
+        return isNaN(finalVal) ? 0.1 : finalVal;
+      });
       return Promise.resolve(validEmbedding);
     }),
     clearCache: vi.fn(),

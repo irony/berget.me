@@ -11,22 +11,27 @@ import { Message } from '../../types/chat';
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
-      if (!text || text.length === 0) {
-        return Promise.resolve(new Array(384).fill(0.1));
+      if (!text || typeof text !== 'string' || text.length === 0) {
+        const fallbackEmbedding = new Array(384).fill(0);
+        for (let i = 0; i < 384; i++) {
+          fallbackEmbedding[i] = 0.1 + (i * 0.001);
+        }
+        return Promise.resolve(fallbackEmbedding);
       }
       
       // Create a deterministic embedding based on text content
       const embedding = new Array(384).fill(0);
-      for (let i = 0; i < text.length && i < 384; i++) {
+      for (let i = 0; i < Math.min(text.length, 384); i++) {
         embedding[i] = (text.charCodeAt(i) / 1000) + Math.sin(i) * 0.1 + 0.01;
       }
       
-      // Add some variance to make embeddings unique
+      // Add some variance to make embeddings unique and valid
       for (let i = 0; i < 384; i++) {
-        embedding[i] += (i * 0.001) + (text.length * 0.0001);
+        embedding[i] += (i * 0.001) + (text.length * 0.0001) + 0.1;
       }
       
-      return Promise.resolve(embedding);
+      // Ensure all values are valid numbers
+      return Promise.resolve(embedding.map(val => isNaN(val) ? 0.1 : val));
     }),
     clearCache: vi.fn(),
     getCacheStats: vi.fn().mockReturnValue({ size: 0, keys: [] })

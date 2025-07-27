@@ -11,17 +11,26 @@ import { ConversationState } from '../../types/conversationState';
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
-      if (!text || text.length === 0) {
-        return Promise.resolve(new Array(384).fill(0.1));
+      if (!text || typeof text !== 'string' || text.length === 0) {
+        const fallbackEmbedding = new Array(384).fill(0);
+        for (let i = 0; i < 384; i++) {
+          fallbackEmbedding[i] = 0.1 + (i * 0.001);
+        }
+        return Promise.resolve(fallbackEmbedding);
       }
       
       const embedding = new Array(384).fill(0);
-      for (let i = 0; i < text.length && i < 384; i++) {
+      for (let i = 0; i < Math.min(text.length, 384); i++) {
         embedding[i] = (text.charCodeAt(i) / 1000) + 0.1 + (i * 0.001);
       }
       
+      // Add more variance to ensure uniqueness
+      for (let i = 0; i < 384; i++) {
+        embedding[i] += Math.sin(i + text.length) * 0.05 + 0.05;
+      }
+      
       // Ensure we always return a valid embedding with variance
-      return Promise.resolve(embedding);
+      return Promise.resolve(embedding.map(val => isNaN(val) ? 0.1 : val));
     }),
     clearCache: vi.fn(),
     getCacheStats: vi.fn().mockReturnValue({ size: 0, keys: [] })
