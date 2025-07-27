@@ -5,10 +5,11 @@ export class ConversationIndexer {
   private static isIndexing = false;
   private static indexQueue: Array<{
     content: string;
-    type: 'user_message' | 'assistant_message';
+    type: 'user_message' | 'assistant_message' | 'conversation_context';
     importance: number;
     tags: string[];
     context?: string;
+    resolve?: () => void;
   }> = [];
 
   // Index a user message
@@ -18,15 +19,18 @@ export class ConversationIndexer {
     const importance = this.calculateMessageImportance(message.content, 'user');
     const tags = this.extractTags(message.content);
 
-    this.indexQueue.push({
-      content: message.content,
-      type: 'user_message',
-      importance,
-      tags,
-      context: `User message from ${message.timestamp.toISOString()}`
-    });
+    return new Promise((resolve) => {
+      this.indexQueue.push({
+        content: message.content,
+        type: 'user_message',
+        importance,
+        tags,
+        context: `User message from ${message.timestamp.toISOString()}`,
+        resolve
+      });
 
-    this.processQueue();
+      this.processQueue();
+    });
   }
 
   // Index an assistant message
@@ -36,15 +40,18 @@ export class ConversationIndexer {
     const importance = this.calculateMessageImportance(message.content, 'assistant');
     const tags = this.extractTags(message.content);
 
-    this.indexQueue.push({
-      content: message.content,
-      type: 'assistant_message',
-      importance,
-      tags,
-      context: `Assistant message from ${message.timestamp.toISOString()}`
-    });
+    return new Promise((resolve) => {
+      this.indexQueue.push({
+        content: message.content,
+        type: 'assistant_message',
+        importance,
+        tags,
+        context: `Assistant message from ${message.timestamp.toISOString()}`,
+        resolve
+      });
 
-    this.processQueue();
+      this.processQueue();
+    });
   }
 
   // Index conversation context (summary of recent conversation)
@@ -67,15 +74,18 @@ export class ConversationIndexer {
     if (userMessages.length > 0) tags.push('user_interaction');
     if (assistantMessages.length > 0) tags.push('assistant_response');
 
-    this.indexQueue.push({
-      content: conversationSummary,
-      type: 'conversation_context',
-      importance,
-      tags,
-      context: `Conversation context from ${recentMessages[0]?.timestamp.toISOString()} to ${recentMessages[recentMessages.length - 1]?.timestamp.toISOString()}`
-    });
+    return new Promise((resolve) => {
+      this.indexQueue.push({
+        content: conversationSummary,
+        type: 'conversation_context',
+        importance,
+        tags,
+        context: `Conversation context from ${recentMessages[0]?.timestamp.toISOString()} to ${recentMessages[recentMessages.length - 1]?.timestamp.toISOString()}`,
+        resolve
+      });
 
-    this.processQueue();
+      this.processQueue();
+    });
   }
 
   // Search for relevant context before sending a message
@@ -163,8 +173,14 @@ export class ConversationIndexer {
                 item.tags,
                 item.context
               );
+              if (item.resolve) {
+                item.resolve();
+              }
             } catch (error) {
               console.error('❌ Error indexing item:', error, item);
+              if (item.resolve) {
+                item.resolve();
+              }
             }
           })
         );
