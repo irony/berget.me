@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes message-appear {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-message-appear {
+  animation: message-appear 0.4s ease-out;
+}
+
+@keyframes typing-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.animate-typing-pulse {
+  animation: typing-pulse 1.5s ease-in-out infinite;
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+@keyframes subtle-bounce {
+  0%, 60%, 100% { 
+    transform: translateY(0px);
+    opacity: 0.4;
+  }
+  30% { 
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.animate-subtle-bounce {
+  animation: subtle-bounce 1.6s ease-in-out infinite;
+}
+
+@keyframes thinking-pulse {
+  0%, 100% { 
+    opacity: 0.3;
+    transform: scale(0.95);
+  }
+  50% { 
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.animate-thinking-pulse {
+  animation: thinking-pulse 1.2s ease-in-out infinite;
+}
