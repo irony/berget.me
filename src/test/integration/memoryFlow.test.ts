@@ -34,7 +34,6 @@ vi.mock('../../services/embeddingService', () => ({
 }));
 
 // Mock the bergetAPI to avoid real API calls
-const { bergetAPI } = await import('../../services/api');
 vi.mock('../../services/api', () => ({
   bergetAPI: {
     sendReflectionAnalysisMessageWithJsonMode: vi.fn().mockImplementation((messages) => {
@@ -394,7 +393,6 @@ describe('Memory Flow Integration Tests', () => {
 
     it('ska hantera reflektion utan minnesåtgärd', async () => {
       // 1. Mock API att returnera reflektion utan memoryAction
-      const { bergetAPI } = await import('../../services/api');
       vi.mocked(bergetAPI.sendReflectionAnalysisMessageWithJsonMode).mockResolvedValueOnce(
         JSON.stringify({
           content: 'En enkel reflektion',

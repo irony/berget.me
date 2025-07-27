@@ -1,10 +1,28 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { VectorMemoryService } from '../../services/vectorMemory';
+import { VectorDatabase } from '../../services/vectorDatabase';
+
+// Mock embedding service
+vi.mock('../../services/embeddingService', () => ({
+  EmbeddingService: {
+    getEmbedding: vi.fn().mockImplementation((text: string) => {
+      const embedding = new Array(384).fill(0);
+      for (let i = 0; i < Math.min(text.length, 384); i++) {
+        embedding[i] = (text.charCodeAt(i) / 1000) + Math.sin(i) * 0.1;
+      }
+      return Promise.resolve(embedding);
+    }),
+    clearCache: vi.fn(),
+    getCacheStats: vi.fn().mockReturnValue({ size: 0, keys: [] })
+  }
+}));
 
 describe('VectorMemoryService', () => {
   beforeEach(() => {
     // Clear localStorage before each test
     localStorage.clear();
+    VectorDatabase.clearAllEntries();
+    VectorDatabase.clearIndexVectors();
     vi.clearAllMocks();
     
     // Mock localStorage properly

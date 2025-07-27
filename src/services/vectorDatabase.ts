@@ -51,7 +51,7 @@ export class VectorDatabase {
 
   // Euclidean distance calculation
   private static euclideanDistance(a: number[], b: number[]): number {
-    if (a.length !== b.length) return Infinity;
+    if (!a || !b || a.length !== b.length) return Infinity;
     
     let sum = 0;
     for (let i = 0; i < a.length; i++) {

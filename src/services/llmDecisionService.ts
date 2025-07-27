@@ -87,8 +87,15 @@ export class LLMDecisionService {
         }
       ];
       
-      bergetAPI.sendAnalysisMessageWithJsonMode(analysisMessages)
-        .then(response => {
+      const apiCall = bergetAPI.sendAnalysisMessageWithJsonMode(analysisMessages);
+      if (!apiCall || typeof apiCall.then !== 'function') {
+        console.error('API call returned invalid promise');
+        subscriber.next(this.getDefaultDecision());
+        subscriber.complete();
+        return;
+      }
+      
+      apiCall.then(response => {
           try {
             const decision = JSON.parse(response);
             
@@ -156,8 +163,15 @@ export class LLMDecisionService {
         }
       ];
       
-      bergetAPI.sendReflectionAnalysisMessageWithJsonMode(reflectionMessages)
-        .then(response => {
+      const apiCall = bergetAPI.sendReflectionAnalysisMessageWithJsonMode(reflectionMessages);
+      if (!apiCall || typeof apiCall.then !== 'function') {
+        console.error('API call returned invalid promise');
+        subscriber.next(null);
+        subscriber.complete();
+        return;
+      }
+      
+      apiCall.then(response => {
           console.log('📨 Raw API response for reflection (first 200 chars):', response.substring(0, 200));
           console.log('📨 Full response length:', response.length);
           
