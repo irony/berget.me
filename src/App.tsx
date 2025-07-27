@@ -563,6 +563,7 @@ Använd denna kontext för att ge mer personliga och relevanta svar, men nämn i
             <button
               onClick={handleSendMessage}
               disabled={!currentMessage.trim() || isTyping}
+              aria-label="send"
               className={`flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center transition-all ${
                 currentMessage.trim() && !isTyping
                   ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md'
