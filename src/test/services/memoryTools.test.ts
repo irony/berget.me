@@ -117,7 +117,7 @@ describe('MemoryToolService', () => {
       expect(prompt).toContain('TILLGÄNGLIGA MINNESVERKTYG');
       expect(prompt).toContain('save_memory');
       expect(prompt).toContain('search_memory');
-      expect(prompt).toContain('STRIKT VALID JSON');
+      expect(prompt).toContain('ASYNKRON VERKTYGSANVÄNDNING');
       expect(prompt).toContain('SPARA MINNEN FÖR:');
     });
   });

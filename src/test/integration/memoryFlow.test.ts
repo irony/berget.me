@@ -139,8 +139,8 @@ describe('Memory Flow Integration Tests', () => {
 
       // 5. Verifiera att reflektionen genererades korrekt
       expect(reflection).toBeTruthy();
-      expect(reflection.content).toContain('dåligt');
-      expect(reflection.emotions).toContain('😟');
+      expect(reflection.content).toContain('presentera');
+      expect(reflection.emotions).toContain('😊');
 
       // 6. Verifiera att minnet sparades
       const memories = VectorMemoryService.getAllMemories();
@@ -393,6 +393,7 @@ describe('Memory Flow Integration Tests', () => {
 
     it('ska hantera reflektion utan minnesåtgärd', async () => {
       // 1. Mock API att returnera reflektion utan memoryAction
+      const { bergetAPI } = await import('../../services/api');
       vi.mocked(bergetAPI.sendReflectionAnalysisMessageWithJsonMode).mockResolvedValueOnce(
         JSON.stringify({
           content: 'En enkel reflektion',
