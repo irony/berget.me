@@ -143,11 +143,12 @@ export class LLMDecisionService {
       const reflectionPrompt = PromptBuilder.buildReflectionPrompt(state);
 
       console.log('🚀 Sending reflection prompt to API...');
+      console.log('📋 Reflection prompt preview:', reflectionPrompt.substring(0, 200) + '...');
       
       const reflectionMessages = [
         {
           role: 'system' as const,
-          content: 'Du är en emotionellt intelligent AI som analyserar användarens känslor i realtid. Svara ALLTID med valid JSON enligt det format som begärs.'
+          content: 'Du är en emotionellt intelligent AI som analyserar användarens känslor i realtid. Svara ALLTID med valid JSON enligt det format som begärs. Använd ALDRIG markdown-kodblock.'
         },
         {
           role: 'user' as const,
@@ -157,49 +158,53 @@ export class LLMDecisionService {
       
       bergetAPI.sendReflectionAnalysisMessageWithJsonMode(reflectionMessages)
         .then(response => {
-          console.log('📨 Raw API response for reflection:', response.substring(0, 200) + '...');
+          console.log('📨 Raw API response for reflection:', response);
+          
+          // Check if response is an error message
+          if (response.includes('🔑') || response.includes('API-nyckel') || response.includes('API-fel')) {
+            console.error('❌ API returned error message:', response);
+            subscriber.next(null);
+            subscriber.complete();
+            return;
+          }
+          
           try {
-            const reflection = JSON.parse(response);
+            // Try to extract and parse JSON from response
+            const reflection = this.extractJSON(response);
             
-            if (!reflection) {
-              console.error('❌ Failed to parse reflection - empty response');
-              subscriber.next({
-                id: Date.now().toString(),
-                content: 'Jag reflekterar över det du skriver...',
-                timestamp: new Date(),
-                isVisible: true,
-                emotions: ['🤔'],
-                emotionalState: 'Fundersam'
-              });
+            if (!reflection || typeof reflection !== 'object') {
+              console.error('❌ Failed to parse reflection - invalid JSON structure:', reflection);
+              subscriber.next(null);
               subscriber.complete();
               return;
             }
             
             console.log('✅ Parsed reflection JSON:', reflection);
             
+            // Validate required fields
+            if (!reflection.content || !reflection.emotionalState) {
+              console.error('❌ Reflection missing required fields:', reflection);
+              subscriber.next(null);
+              subscriber.complete();
+              return;
+            }
+            
             const reflectionMessage: ReflectionMessage = {
               id: Date.now().toString(),
-              content: reflection.content || 'Jag reflekterar över det du skriver...',
+              content: reflection.content,
               timestamp: new Date(),
               isVisible: true,
               emotions: Array.isArray(reflection.emotions) ? reflection.emotions : ['🤔'],
-              emotionalState: reflection.emotionalState || 'Fundersam'
+              emotionalState: reflection.emotionalState
             };
             
             console.log('🎯 Final reflection message:', reflectionMessage);
             subscriber.next(reflectionMessage);
             subscriber.complete();
           } catch (error) {
-            console.error('❌ Failed to parse reflection JSON:', error, 'Response:', response);
+            console.error('❌ Failed to parse reflection JSON:', error);
             console.log('📄 Raw response that failed to parse:', response);
-            subscriber.next({
-              id: Date.now().toString(),
-              content: 'Jag reflekterar över det du skriver...',
-              timestamp: new Date(),
-              isVisible: true,
-              emotions: ['🤔'],
-              emotionalState: 'Fundersam'
-            });
+            subscriber.next(null);
             subscriber.complete();
           }
         })
