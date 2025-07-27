@@ -3,7 +3,7 @@ berget.me
 
 > *En revolutionerande chattbot som inte bara pratar med dig - den känner, reflekterar och förstår dig på djupet*
 
-## ✨ Vad gör Berget AI Chat så speciell?
+## ✨ Vad gör Berget.me så speciell?
 
 Detta är inte bara en vanlig AI-chattbot. berget.me är ett avancerat system som simulerar genuina känslor och bygger djupa, meningsfulla relationer med användare genom:
 
