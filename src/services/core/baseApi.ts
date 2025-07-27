@@ -10,7 +10,7 @@ export class BaseAPI {
     stream: boolean = false,
     additionalParams: any = {}
   ): Promise<string> {
-    const apiKey = import.meta.env.VITE_API_KEY;
+    const apiKey = import.meta.env.VITE_BERGET_API_KEY;
     if (!apiKey) {
       return '🔑 API-nyckel saknas. Kontrollera din konfiguration.';
     }
@@ -55,7 +55,7 @@ export class BaseAPI {
     stream: boolean = true,
     additionalParams: any = {}
   ): Promise<{ content: string; tool_calls?: any[] }> {
-    const apiKey = import.meta.env.VITE_API_KEY;
+    const apiKey = import.meta.env.VITE_BERGET_API_KEY;
     if (!apiKey) {
       const errorMsg = '🔑 API-nyckel saknas. Kontrollera din konfiguration.';
       onChunk(errorMsg);
