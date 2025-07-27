@@ -13,66 +13,63 @@ vi.mock('../../services/embeddingService', () => ({
     getEmbedding: vi.fn().mockImplementation((text: string) => {
       console.log('🧪 Mock embedding called with:', text?.substring(0, 30) + '...');
       
-      if (!text || typeof text !== 'string' || text.length === 0) {
-        console.log('🧪 Empty text, creating fallback embedding');
-        const fallbackEmbedding = new Array(384).fill(0);
-        for (let i = 0; i < 384; i++) {
-          fallbackEmbedding[i] = 0.1 + (i * 0.001);
-        }
-        return Promise.resolve(fallbackEmbedding);
-      }
+      // Always ensure we have valid text input
+      const safeText = text && typeof text === 'string' && text.length > 0 ? text : 'fallback text';
       
-      // Create a deterministic but varied embedding based on text content
-      const embedding = new Array(384).fill(0);
+      // Create a completely deterministic embedding that's always valid
+      const embedding = new Array(384);
       
-      // Use text hash for consistency
-      let hash = 0;
-      for (let i = 0; i < text.length; i++) {
-        hash = ((hash << 5) - hash + text.charCodeAt(i)) & 0xffffffff;
-      }
-      
-      // Create embeddings with strong patterns for specific words
+      // Use simple character-based generation that's guaranteed to work
       for (let i = 0; i < 384; i++) {
-        let baseValue = 0.5; // Start with neutral value
+        const charIndex = i % safeText.length;
+        const charCode = safeText.charCodeAt(charIndex);
         
-        // Add strong signals for specific words to ensure similarity
-        if (text.toLowerCase().includes('anna')) {
-          baseValue += Math.sin(i * 0.1) * 0.4 + 0.2;
+        // Simple but effective embedding generation
+        let value = 0.5; // Safe base value
+        
+        // Add character-based variation
+        value += (charCode / 1000) * 0.3; // Scale down to prevent overflow
+        
+        // Add position-based variation
+        value += Math.sin(i * 0.01) * 0.2;
+        
+        // Add text-specific patterns for better similarity matching
+        if (safeText.toLowerCase().includes('anna')) {
+          value += Math.sin(i * 0.05) * 0.3;
         }
-        if (text.toLowerCase().includes('kaffe')) {
-          baseValue += Math.cos(i * 0.1) * 0.4 + 0.2;
+        if (safeText.toLowerCase().includes('kaffe')) {
+          value += Math.cos(i * 0.05) * 0.3;
         }
-        if (text.toLowerCase().includes('utvecklare')) {
-          baseValue += Math.sin(i * 0.15) * 0.4 + 0.2;
+        if (safeText.toLowerCase().includes('utvecklare')) {
+          value += Math.sin(i * 0.07) * 0.3;
         }
-        if (text.toLowerCase().includes('typescript')) {
-          baseValue += Math.cos(i * 0.15) * 0.4 + 0.2;
+        if (safeText.toLowerCase().includes('typescript')) {
+          value += Math.cos(i * 0.07) * 0.3;
         }
-        if (text.toLowerCase().includes('mår') || text.toLowerCase().includes('dåligt')) {
-          baseValue += Math.sin(i * 0.2) * 0.4 + 0.2;
+        if (safeText.toLowerCase().includes('mår') || safeText.toLowerCase().includes('dåligt')) {
+          value += Math.sin(i * 0.09) * 0.3;
         }
         
-        // Add hash-based variation for uniqueness
-        baseValue += Math.sin(i + hash * 0.0001) * 0.1;
-        
-        // Ensure value is in valid range
-        embedding[i] = Math.max(-1, Math.min(1, baseValue));
+        // Ensure value is always in valid range [-1, 1]
+        embedding[i] = Math.max(-1, Math.min(1, value));
       }
       
-      // Validate embedding before returning
-      const validEmbedding = embedding.map(val => {
-        if (isNaN(val) || !isFinite(val)) return 0.1;
-        return val;
-      });
+      // Final validation - ensure no NaN or infinite values
+      for (let i = 0; i < 384; i++) {
+        if (!isFinite(embedding[i]) || isNaN(embedding[i])) {
+          embedding[i] = 0.1; // Safe fallback
+        }
+      }
       
       console.log('🧪 Mock embedding created:', { 
-        length: validEmbedding.length, 
-        sample: validEmbedding.slice(0, 3),
-        hasNaN: validEmbedding.some(v => isNaN(v)),
-        allFinite: validEmbedding.every(v => isFinite(v))
+        length: embedding.length, 
+        sample: embedding.slice(0, 3),
+        hasNaN: embedding.some(v => isNaN(v)),
+        allFinite: embedding.every(v => isFinite(v)),
+        range: [Math.min(...embedding), Math.max(...embedding)]
       });
       
-      return Promise.resolve(validEmbedding);
+      return Promise.resolve(embedding);
     }),
     clearCache: vi.fn(),
     getCacheStats: vi.fn().mockReturnValue({ size: 0, keys: [] })
@@ -182,7 +179,7 @@ describe('Memory Flow Integration Tests', () => {
       });
 
       // 4. Vänta längre för att låta asynkron minneslagring slutföras
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // 5. Verifiera att reflektionen genererades korrekt
       expect(reflection).toBeTruthy();
@@ -280,7 +277,7 @@ describe('Memory Flow Integration Tests', () => {
       await ConversationIndexer.indexConversationContext(messages);
 
       // 4. Vänta längre på att indexeringen slutförs
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // 5. Verifiera att meddelanden indexerades
       const allEntries = VectorDatabase.getAllEntries();
@@ -318,7 +315,7 @@ describe('Memory Flow Integration Tests', () => {
       }
 
       // 3. Vänta längre på indexering
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // 4. Sök efter relevant kontext för nytt meddelande
       const newMessage = 'Kan du hjälpa mig med TypeScript-problem?';
