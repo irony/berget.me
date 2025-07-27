@@ -197,7 +197,7 @@ describe('End-to-End Integration Tests', () => {
 
       // 11. Verifiera att AI:n kommer ihåg namnet
       await waitFor(() => {
-        expect(screen.getByText(/Du heter Anna/)).toBeInTheDocument();
+        expect(screen.getByText('Du heter Anna!')).toBeInTheDocument();
       }, { timeout: 3000 });
     });
 
