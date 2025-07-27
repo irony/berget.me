@@ -1,4 +1,4 @@
-import { VectorMemoryService } from './vectorMemory';
+import { VectorDatabase } from './vectorDatabase';
 import { Message } from '../types/chat';
 
 export class ConversationIndexer {
@@ -9,9 +9,9 @@ export class ConversationIndexer {
     const importance = this.calculateMessageImportance(message.content, 'user');
     const tags = this.extractTags(message.content);
 
-    await VectorMemoryService.saveMemory(
+    await VectorDatabase.saveEntry(
       message.content,
-      'conversation',
+      'user_message',
       importance,
       tags,
       `User message from ${message.timestamp.toISOString()}`
@@ -27,9 +27,9 @@ export class ConversationIndexer {
     const importance = this.calculateMessageImportance(message.content, 'assistant');
     const tags = this.extractTags(message.content);
 
-    await VectorMemoryService.saveMemory(
+    await VectorDatabase.saveEntry(
       message.content,
-      'conversation',
+      'assistant_message',
       importance,
       tags,
       `Assistant message from ${message.timestamp.toISOString()}`
@@ -58,9 +58,9 @@ export class ConversationIndexer {
     if (userMessages.length > 0) tags.push('user_interaction');
     if (assistantMessages.length > 0) tags.push('assistant_response');
 
-    await VectorMemoryService.saveMemory(
+    await VectorDatabase.saveEntry(
       conversationSummary,
-      'conversation',
+      'conversation_context',
       importance,
       tags,
       `Conversation context from ${recentMessages[0]?.timestamp.toISOString()} to ${recentMessages[recentMessages.length - 1]?.timestamp.toISOString()}`
@@ -85,11 +85,10 @@ export class ConversationIndexer {
   }> {
     try {
       // Search for similar conversations and context
-      const searchResults = await VectorMemoryService.searchMemories(
+      const searchResults = await VectorDatabase.searchSimilar(
         userMessage,
         limit * 2, // Get more results to filter
-        0.4, // Higher similarity threshold for context
-        'conversation'
+        0.4 // Higher similarity threshold for context
       );
 
       // Filter out very recent messages to avoid redundancy
@@ -208,11 +207,11 @@ export class ConversationIndexer {
     isIndexing: boolean;
     databaseStats: any;
   } {
-    const memoryStats = VectorMemoryService.getMemoryStats();
+    const databaseStats = VectorDatabase.getStats();
     return {
       queueLength: 0,
       isIndexing: false,
-      databaseStats: memoryStats
+      databaseStats
     };
   }
 
