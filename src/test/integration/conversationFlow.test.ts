@@ -29,6 +29,7 @@ vi.mock('../../services/embeddingService', () => ({
 }));
 
 // Mock berget API
+const { bergetAPI } = await import('../../services/api');
 vi.mock('../../services/api', () => ({
   bergetAPI: {
     sendAnalysisMessageWithJsonMode: vi.fn().mockImplementation((messages) => {
