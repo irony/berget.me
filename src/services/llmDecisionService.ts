@@ -148,7 +148,7 @@ export class LLMDecisionService {
       const reflectionMessages = [
         {
           role: 'system' as const,
-          content: 'Du är en emotionellt intelligent AI som analyserar användarens känslor i realtid. Svara ALLTID med valid JSON enligt det format som begärs. Använd ALDRIG markdown-kodblock. Svara ENDAST med JSON, inget annat text.'
+          content: 'Du är en emotionellt intelligent AI som analyserar användarens känslor i realtid OCH hanterar långtidsminnet. Svara ALLTID med valid JSON enligt det format som begärs. Använd ALDRIG markdown-kodblock. Svara ENDAST med JSON, inget annat text.'
         },
         {
           role: 'user' as const,
@@ -190,6 +190,28 @@ export class LLMDecisionService {
             }
             
             console.log('✅ Parsed reflection JSON:', reflection);
+            
+            // Handle memory action if present
+            if (reflection.memoryAction && reflection.memoryAction.shouldSave) {
+              console.log('💾 Reflection AI wants to save memory:', reflection.memoryAction);
+              
+              // Import and use VectorMemoryService to save the memory
+              import('../services/vectorMemory').then(({ VectorMemoryService }) => {
+                VectorMemoryService.saveMemory(
+                  reflection.memoryAction.content,
+                  reflection.memoryAction.type,
+                  reflection.memoryAction.importance,
+                  reflection.memoryAction.tags,
+                  `Reflection AI: ${reflection.memoryAction.reasoning}`
+                ).then(id => {
+                  console.log('💾 Memory saved by Reflection AI:', id);
+                }).catch(error => {
+                  console.error('❌ Failed to save memory from Reflection AI:', error);
+                });
+              });
+            } else if (reflection.memoryAction) {
+              console.log('🚫 Reflection AI decided not to save memory:', reflection.memoryAction.reasoning);
+            }
             
             // Validate required fields with more detailed logging
             if (!reflection.content) {

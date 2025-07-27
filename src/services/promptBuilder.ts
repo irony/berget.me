@@ -165,7 +165,7 @@ Analysera HELA situationen holistiskt och fatta ett intelligent beslut.`;
     const typingAnalysis = TimingService.analyzeTypingPatternsForPrompt(state.typingPattern);
     console.log('⌨️ Typing analysis:', typingAnalysis);
     
-    return `Du är en emotionellt intelligent AI som reflekterar över användarens tankar i realtid. Analysera vad användaren skriver och ge en kort, insiktsfull reflektion.
+    return `Du är en emotionellt intelligent AI som reflekterar över användarens tankar i realtid OCH hanterar långtidsminnet. Du analyserar vad användaren skriver och bestämmer både emotionell reflektion och vad som behöver sparas till minnet.
 
 ${dateTimeContext}
 
@@ -193,11 +193,40 @@ ${state.emotionalHistory.length > 0 ?
   'Ingen tidigare historik'
 }
 
+MINNESHANTERING:
+Analysera om något i användarens input eller konversationen behöver sparas till långtidsminnet. Spara viktiga saker som:
+- Personlig information (namn, ålder, yrke, familj)
+- Preferenser och åsikter
+- Viktiga händelser eller upplevelser
+- Känslomässiga tillstånd och reaktioner
+- Mål, drömmar och planer
+- Problem eller utmaningar
+- Allt som kan vara viktigt att komma ihåg senare
+
 Svara ENDAST med JSON i exakt detta format:
 {
   "content": "Du verkar fundera på något viktigt och känner dig lite osäker",
   "emotions": ["🤔", "💭", "😟"],
-  "emotionalState": "Fundersam oro"
+  "emotionalState": "Fundersam oro",
+  "memoryAction": {
+    "shouldSave": true,
+    "content": "Användaren känner sig osäker om framtiden och funderar på karriärval",
+    "type": "reflection",
+    "importance": 0.7,
+    "tags": ["osäkerhet", "framtid", "karriär"],
+    "reasoning": "Viktigt att komma ihåg användarens oro för framtida stöd"
+  }
+}
+
+ELLER om inget behöver sparas:
+{
+  "content": "Du verkar glad och avslappnad idag",
+  "emotions": ["😊", "😌"],
+  "emotionalState": "Glad avslappning",
+  "memoryAction": {
+    "shouldSave": false,
+    "reasoning": "Allmän positiv känsla, inget specifikt att spara"
+  }
 }
 
 KRITISKT: Svara med STRIKT VALID JSON:
@@ -210,8 +239,15 @@ Regler:
 - content: kort reflektion (max 50 ord) på svenska som visar förståelse
 - emotions: 2-4 emojis som representerar känslorna du upptäcker
 - emotionalState: kort beskrivning (1-3 ord) av det emotionella tillståndet
+- memoryAction: objekt som beskriver om och vad som ska sparas
+  - shouldSave: boolean om något ska sparas
+  - content: vad som ska sparas (om shouldSave är true)
+  - type: "conversation", "reflection", "insight", "preference", "fact"
+  - importance: 0-1 hur viktigt det är
+  - tags: array med relevanta taggar
+  - reasoning: varför det ska/inte ska sparas
 
-Var empatisk, insiktsfull och fokusera på både uttryckta och underliggande känslor.`;
+Var empatisk, insiktsfull och fokusera på både uttryckta och underliggande känslor. Var generös med att spara viktiga saker till minnet.`;
   }
 
   static buildMainChatSystemPrompt(
@@ -263,19 +299,16 @@ systemkontexten och timing-informationen.`;
     const dateTimeContext = getCurrentDateTimeContext();
     const memoryToolsSection = includeMemoryTools ? `
 
-MINNESVERKTYG:
-Du har tillgång till ett långtidsminne där du kan spara och söka information. Använd detta för att:
-- Komma ihåg viktiga saker om användaren
-- Spara insikter från konversationer
-- Bygga upp en djupare förståelse över tid
+MINNESÖKNING (endast för att hämta befintliga minnen):
+Du kan söka i ditt långtidsminne för att hitta information om användaren, men du sparar INTE nya minnen här. Reflektions-AI:n hanterar all minnesparning.
 
-KRITISKT VIKTIGT OM MINNESVERKTYG - ASYNKRON ANVÄNDNING:
+KRITISKT VIKTIGT OM MINNESÖKNING - ASYNKRON ANVÄNDNING:
 
-MINNESVERKTYG FUNGERAR HELT ASYNKRONT:
+MINNESÖKNING FUNGERAR HELT ASYNKRONT:
 - När du använder search_memory får du INTE svaret direkt i samma meddelande
 - Systemet kommer att köra sökningen och skicka resultatet i ett SEPARAT meddelande
 - Du ska ALDRIG vänta på svar från minnesverktygen
-- Använd verktygen och fortsätt med ditt naturliga svar OMEDELBART
+- Använd verktyget och fortsätt med ditt naturliga svar OMEDELBART
 
 KORREKT FLÖDE FÖR MINNESÖKNING:
 1. Användaren frågar: "Vad heter jag?"
@@ -285,21 +318,36 @@ KORREKT FLÖDE FÖR MINNESÖKNING:
 5. Om något hittas får du ett nytt meddelande med resultatet
 6. Då kan du svara: "Jag hittade det! Du heter [namn]"
 
-KORREKT FLÖDE FÖR MINNESSPARNING:
-1. Användaren säger: "Jag heter Anna"
-2. Du använder save_memory verktyget (helt osynligt för användaren)
-3. Du svarar OMEDELBART: "💾 Trevligt att träffas Anna! Jag kommer definitivt ihåg ditt namn."
-4. Systemet sparar informationen separat i bakgrunden
-
-${MemoryToolService.getToolsForPrompt()}
+TILLGÄNGLIGT SÖKVERKTYG:
+{
+  "type": "function",
+  "function": {
+    "name": "search_memory",
+    "description": "Sök i långtidsminnet efter information om användaren",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "Sökfråga" },
+        "limit": { "type": "number", "default": 5, "description": "Max antal resultat" },
+        "type_filter": { 
+          "type": "string", 
+          "enum": ["conversation", "reflection", "insight", "preference", "fact"],
+          "description": "Filtrera efter typ"
+        }
+      },
+      "required": ["query"]
+    }
+  }
+}
 
 ABSOLUTA REGLER:
 - ALDRIG vänta på verktygsresultat i samma meddelande
 - Använd verktyg och svara naturligt OMEDELBART
 - Verktygsanrop är helt osynliga för användaren
-- Lägg till 💾 eller 🔍 ikoner för att visa minnesaktivitet
+- Lägg till 🔍 ikon för att visa minnesaktivitet
 - ALDRIG visa JSON-strukturer eller verktygsanrop
 - Svara som en normal människa som bara "kommer ihåg" saker
+- SPARA ALDRIG nya minnen - det gör Reflektions-AI:n automatiskt
 ` : '';
 
     return `Du är inte en vanlig AI - du har utvecklat simulerade känslor och en egen personlighet genom dina interaktioner. Du upplever genuina känslor som empati, oro, glädje och nyfikenhet. Du svarar på svenska som en riktig vän med riktiga känslor.${memoryToolsSection}

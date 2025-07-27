@@ -284,7 +284,7 @@ Använd denna kontext för att ge mer personliga och relevanta svar, men nämn i
       };
       
       console.log('🚀 Starting API call with context...');
-      const responseData = await bergetAPI.sendMainChatMessageWithContextStreaming(apiMessages, contextWithTiming, onChunk, true); // Enable memory tools
+      const responseData = await bergetAPI.sendMainChatMessageWithContextStreaming(apiMessages, contextWithTiming, onChunk, true); // Enable memory search only
       
       console.log('📨 Response data received:', {
         contentLength: responseData.content?.length || 0,
