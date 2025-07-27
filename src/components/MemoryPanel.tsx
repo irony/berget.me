@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Search, Trash2, Tag, Clock, Star } from 'lucide-react';
+import { Database, Search, Trash2, Tag, Clock, Star, Zap, Activity } from 'lucide-react';
 import { VectorMemoryService, MemoryEntry } from '../services/vectorMemory';
+import { VectorDatabase } from '../services/vectorDatabase';
+import { ConversationIndexer } from '../services/conversationIndexer';
+import { EmbeddingService } from '../services/embeddingService';
 
 interface MemoryPanelProps {
   isVisible: boolean;
@@ -12,6 +15,9 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({ isVisible }) => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [selectedType, setSelectedType] = useState<string>('all');
+  const [vectorStats, setVectorStats] = useState<any>(null);
+  const [indexerStats, setIndexerStats] = useState<any>(null);
+  const [embeddingStats, setEmbeddingStats] = useState<any>(null);
 
   useEffect(() => {
     if (isVisible) {
@@ -28,6 +34,15 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({ isVisible }) => {
   const loadStats = () => {
     const memoryStats = VectorMemoryService.getMemoryStats();
     setStats(memoryStats);
+    
+    const vectorDbStats = VectorDatabase.getStats();
+    setVectorStats(vectorDbStats);
+    
+    const convIndexerStats = ConversationIndexer.getStats();
+    setIndexerStats(convIndexerStats);
+    
+    const embeddingCacheStats = EmbeddingService.getCacheStats();
+    setEmbeddingStats(embeddingCacheStats);
   };
 
   const handleSearch = async () => {
@@ -52,6 +67,18 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({ isVisible }) => {
       loadStats();
       // Remove from search results if present
       setSearchResults(prev => prev.filter(result => result.entry.id !== id));
+    }
+  };
+
+  const handleClearAllMemories = () => {
+    if (confirm('Är du säker på att du vill rensa ALLA minnen och vektordata? Detta kan inte ångras.')) {
+      VectorMemoryService.clearAllMemories();
+      VectorDatabase.clearIndexVectors();
+      EmbeddingService.clearCache();
+      ConversationIndexer.clearQueue();
+      loadMemories();
+      loadStats();
+      setSearchResults([]);
     }
   };
 
@@ -92,8 +119,8 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({ isVisible }) => {
       {/* Stats */}
       {stats && (
         <div className="px-4 py-3 bg-white/30 border-b border-blue-100">
-          <div className="text-xs text-blue-800">
-            <div className="flex justify-between mb-1">
+          <div className="text-xs text-blue-800 space-y-2">
+            <div className="flex justify-between">
               <span>Totalt minnen:</span>
               <span className="font-medium">{stats.totalEntries}</span>
             </div>
@@ -102,6 +129,58 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({ isVisible }) => {
                 <span>Genomsnittlig viktighet:</span>
                 <div className="flex space-x-0.5">
                   {getImportanceStars(stats.averageImportance)}
+                </div>
+              </div>
+            )}
+            
+            {/* Vector Database Stats */}
+            {vectorStats && (
+              <>
+                <div className="border-t border-blue-200 pt-2">
+                  <div className="flex items-center space-x-1 mb-1">
+                    <Zap className="w-3 h-3" />
+                    <span className="font-medium">Vektordatabas</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Index initialiserat:</span>
+                    <span className={vectorStats.indexVectorsInitialized ? 'text-green-600' : 'text-red-600'}>
+                      {vectorStats.indexVectorsInitialized ? '✓' : '✗'}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Indexer Stats */}
+            {indexerStats && (
+              <div className="border-t border-blue-200 pt-2">
+                <div className="flex items-center space-x-1 mb-1">
+                  <Activity className="w-3 h-3" />
+                  <span className="font-medium">Indexering</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Kö:</span>
+                  <span className="font-medium">{indexerStats.queueLength}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Status:</span>
+                  <span className={indexerStats.isIndexing ? 'text-yellow-600' : 'text-green-600'}>
+                    {indexerStats.isIndexing ? 'Indexerar...' : 'Klar'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Embedding Cache Stats */}
+            {embeddingStats && (
+              <div className="border-t border-blue-200 pt-2">
+                <div className="flex items-center space-x-1 mb-1">
+                  <Database className="w-3 h-3" />
+                  <span className="font-medium">Embedding Cache</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Cachade embeddings:</span>
+                  <span className="font-medium">{embeddingStats.size}</span>
                 </div>
               </div>
             )}
@@ -127,18 +206,27 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({ isVisible }) => {
             <Search className="w-3 h-3" />
           </button>
         </div>
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="w-full text-xs px-2 py-1 border border-blue-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
-        >
-          <option value="all">Alla typer</option>
-          <option value="conversation">Konversation</option>
-          <option value="reflection">Reflektion</option>
-          <option value="insight">Insikt</option>
-          <option value="preference">Preferens</option>
-          <option value="fact">Fakta</option>
-        </select>
+        <div className="flex space-x-2">
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="flex-1 text-xs px-2 py-1 border border-blue-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+          >
+            <option value="all">Alla typer</option>
+            <option value="conversation">Konversation</option>
+            <option value="reflection">Reflektion</option>
+            <option value="insight">Insikt</option>
+            <option value="preference">Preferens</option>
+            <option value="fact">Fakta</option>
+          </select>
+          <button
+            onClick={handleClearAllMemories}
+            className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+            title="Rensa alla minnen"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
       {/* Results */}
