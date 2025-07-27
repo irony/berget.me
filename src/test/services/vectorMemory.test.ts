@@ -6,24 +6,53 @@ import { VectorDatabase } from '../../services/vectorDatabase';
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
+      console.log('🧪 Mock embedding for:', text.substring(0, 30) + '...');
+      
       if (!text || typeof text !== 'string' || text.length === 0) {
         const fallbackEmbedding = new Array(384).fill(0);
         for (let i = 0; i < 384; i++) {
           fallbackEmbedding[i] = 0.1 + (i * 0.001);
         }
+        console.log('🧪 Fallback embedding created');
         return Promise.resolve(fallbackEmbedding);
       }
       
+      // Create more realistic embeddings that will have better similarity scores
       const embedding = new Array(384).fill(0);
-      for (let i = 0; i < Math.min(text.length, 384); i++) {
-        embedding[i] = (text.charCodeAt(i) / 1000) + Math.sin(i) * 0.1 + 0.01;
+      
+      // Use text content to create deterministic but varied embeddings
+      const textHash = text.split('').reduce((hash, char) => {
+        return ((hash << 5) - hash + char.charCodeAt(0)) & 0xffffffff;
+      }, 0);
+      
+      for (let i = 0; i < 384; i++) {
+        // Create embedding values based on text content and position
+        const charIndex = i % text.length;
+        const charCode = text.charCodeAt(charIndex);
+        
+        embedding[i] = 
+          (charCode / 1000) + 
+          Math.sin(i + textHash) * 0.2 + 
+          Math.cos(i * 0.1 + text.length) * 0.1 + 
+          (textHash % 1000) / 10000 +
+          0.3; // Base offset to ensure positive values
       }
       
-      // Ensure we have a valid embedding with some variance
+      // Normalize to reasonable range and ensure no NaN values
       const validEmbedding = embedding.map((val, i) => {
-        const finalVal = val + (i * 0.001) + (text.length * 0.0001) + 0.1;
-        return isNaN(finalVal) ? 0.1 : finalVal;
+        let finalVal = val;
+        if (isNaN(finalVal)) finalVal = 0.3;
+        if (finalVal < -1) finalVal = -1;
+        if (finalVal > 1) finalVal = 1;
+        return finalVal;
       });
+      
+      console.log('🧪 Mock embedding created:', { 
+        length: validEmbedding.length, 
+        sample: validEmbedding.slice(0, 3),
+        range: [Math.min(...validEmbedding), Math.max(...validEmbedding)]
+      });
+      
       return Promise.resolve(validEmbedding);
     }),
     clearCache: vi.fn(),
