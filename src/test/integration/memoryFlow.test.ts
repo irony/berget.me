@@ -15,24 +15,18 @@ vi.mock('../../services/embeddingService', () => ({
         return Promise.resolve(new Array(384).fill(0.1));
       }
       
-      // Create a simple mock embedding based on text content
-      const words = text.toLowerCase().split(' ');
+      // Create a deterministic embedding based on text content
       const embedding = new Array(384).fill(0);
+      for (let i = 0; i < text.length && i < 384; i++) {
+        embedding[i] = (text.charCodeAt(i) / 1000) + Math.sin(i) * 0.1 + 0.01;
+      }
       
-      // Simple hash-based embedding for testing
-      words.forEach((word, wordIndex) => {
-        for (let i = 0; i < word.length; i++) {
-          const charCode = word.charCodeAt(i);
-          const index = (charCode + wordIndex * i) % 384;
-          embedding[index] += Math.sin(charCode * 0.1) * 0.1;
-        }
-      });
+      // Add some variance to make embeddings unique
+      for (let i = 0; i < 384; i++) {
+        embedding[i] += (i * 0.001) + (text.length * 0.0001);
+      }
       
-      // Ensure we always have a valid embedding
-      const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-      const normalizedEmbedding = magnitude > 0 ? embedding.map(val => val / magnitude) : new Array(384).fill(0.1);
-      
-      return Promise.resolve(normalizedEmbedding);
+      return Promise.resolve(embedding);
     }),
     clearCache: vi.fn(),
     getCacheStats: vi.fn().mockReturnValue({ size: 0, keys: [] })

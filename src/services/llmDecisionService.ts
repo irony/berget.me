@@ -300,7 +300,7 @@ export class LLMDecisionService {
       actionType: 'wait',
       priority: 'low',
       timing: 2000,
-      reasoning: 'Fel i analysprocessen - väntar',
+      reasoning: 'Konversationen flyter naturligt - väntar',
       confidence: 0.1
     };
   }

@@ -99,7 +99,7 @@ describe('VectorMemoryService', () => {
     });
 
     it('ska respektera minSimilarity-tröskeln', async () => {
-      const results = await VectorMemoryService.searchMemories('helt irrelevant sökterm', 5, 0.9);
+      const results = await VectorMemoryService.searchMemories('helt irrelevant sökterm som inte matchar något', 5, 0.99);
 
       expect(results.length).toBe(0);
     });

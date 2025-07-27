@@ -278,9 +278,10 @@ describe('End-to-End Integration Tests', () => {
       const searchInput = screen.getByPlaceholderText('Sök i minnen...');
       await user.type(searchInput, 'Anna');
 
+
       // 7. Klicka på sökknappen
       const searchButtons = screen.getAllByRole('button');
-      const searchButton = searchButtons.find(btn => btn.getAttribute('type') !== 'submit');
+      const searchButton = searchButtons.find(btn => btn.querySelector('svg'));
       if (searchButton) {
         await user.click(searchButton);
       }
