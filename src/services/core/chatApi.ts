@@ -52,6 +52,10 @@ export class ChatAPI extends BaseAPI {
     console.log('📋 System prompt length:', systemPrompt.length);
     console.log('📋 Last user message:', messages[messages.length - 1]?.content?.substring(0, 100) + '...');
     
+    // Log the exact system prompt being sent
+    console.log('📋 EXACT SYSTEM PROMPT BEING SENT:');
+    console.log(systemPrompt.substring(0, 500) + '...');
+    
     // Prepare tools if memory tools are enabled
     const tools = useMemoryTools ? MemoryToolsAPI.getMemoryToolsForAPI() : undefined;
     
@@ -110,6 +114,9 @@ export class ChatAPI extends BaseAPI {
     
     console.log('🔍 Checking for tool calls in response...');
     console.log('📋 Raw result object:', JSON.stringify(result, null, 2));
+    
+    // Log the COMPLETE response for debugging
+    this.logFullResponse(result, 'CHAT API');
     
     console.log('📝 Regular response content:', result.content.substring(0, 100) + '...');
     console.log('📝 Response length:', result.content.length);

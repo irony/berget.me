@@ -305,21 +305,8 @@ function App() {
         console.log('✅ Message was already shown during streaming');
       } else {
         console.log('⚠️ No message to show - streamBuffer empty:', streamBuffer);
-        // Force show the response even if streamBuffer is empty
-        if (response && response.trim()) {
-          console.log('🔧 Force showing response from responseData');
-          assistantMessageId = (Date.now() + 1).toString();
-          const assistantMessage: Message = {
-            id: assistantMessageId,
-            content: response,
-            sender: 'assistant',
-            timestamp: new Date(),
-            suggestedNextContactTime: responseData.suggestedNextContactTime,
-            conversationPace: responseData.conversationPace as any
-          };
-          setMessages(prev => [...prev, assistantMessage]);
-          console.log('✅ Forced message added to state');
-        }
+        console.log('⚠️ Response from API:', response);
+        // Don't show fallback messages - let user see the actual error
       }
 
       // Bestäm om vi ska skicka följdmeddelanden baserat på emotionell kontext
