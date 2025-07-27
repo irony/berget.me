@@ -1,9 +1,6 @@
-import { VectorDatabase, VectorEntry, VectorSearchResult } from './vectorDatabase';
-
 export interface MemoryEntry {
   id: string;
   content: string;
-  embedding: number[];
   metadata: {
     timestamp: Date;
     type: 'conversation' | 'reflection' | 'insight' | 'preference' | 'fact';
@@ -19,37 +16,8 @@ export interface MemorySearchResult {
 }
 
 export class VectorMemoryService {
-  // Convert VectorEntry to MemoryEntry for backward compatibility
-  private static vectorEntryToMemoryEntry(vectorEntry: VectorEntry): MemoryEntry {
-    return {
-      id: vectorEntry.id,
-      content: vectorEntry.content,
-      embedding: vectorEntry.embedding,
-      metadata: {
-        timestamp: vectorEntry.metadata.timestamp,
-        type: vectorEntry.metadata.type === 'user_message' || vectorEntry.metadata.type === 'assistant_message' 
-          ? 'conversation' 
-          : vectorEntry.metadata.type === 'conversation_context'
-          ? 'conversation'
-          : vectorEntry.metadata.type as any,
-        importance: vectorEntry.metadata.importance,
-        tags: vectorEntry.metadata.tags,
-        context: vectorEntry.metadata.context
-      }
-    };
-  }
-
-  // Convert MemoryEntry type to VectorEntry type
-  private static memoryTypeToVectorType(type: MemoryEntry['metadata']['type']): VectorEntry['metadata']['type'] {
-    switch (type) {
-      case 'conversation': return 'conversation_context';
-      case 'reflection': return 'memory';
-      case 'insight': return 'memory';
-      case 'preference': return 'memory';
-      case 'fact': return 'memory';
-      default: return 'memory';
-    }
-  }
+  private static readonly STORAGE_KEY = 'berget_memories';
+  private static readonly MAX_ENTRIES = 1000;
 
   static async saveMemory(
     content: string,
@@ -59,10 +27,40 @@ export class VectorMemoryService {
     context?: string
   ): Promise<string> {
     try {
-      const vectorType = this.memoryTypeToVectorType(type);
-      const id = await VectorDatabase.saveEntry(content, vectorType, importance, tags, context);
-      console.log('💾 Memory saved via VectorDatabase:', { id, type, content: content.substring(0, 50) + '...' });
-      return id;
+      const entry: MemoryEntry = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        content,
+        metadata: {
+          timestamp: new Date(),
+          type,
+          importance: Math.max(0, Math.min(1, importance)),
+          tags,
+          context
+        }
+      };
+
+      const entries = this.loadEntries();
+      entries.push(entry);
+
+      // Keep only the most recent/important entries
+      if (entries.length > this.MAX_ENTRIES) {
+        entries.sort((a, b) => {
+          const importanceDiff = b.metadata.importance - a.metadata.importance;
+          if (Math.abs(importanceDiff) > 0.1) return importanceDiff;
+          return b.metadata.timestamp.getTime() - a.metadata.timestamp.getTime();
+        });
+        entries.splice(this.MAX_ENTRIES);
+      }
+
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(entries));
+      
+      console.log('💾 Memory saved:', { 
+        id: entry.id, 
+        type, 
+        content: content.substring(0, 50) + '...'
+      });
+      
+      return entry.id;
     } catch (error) {
       console.error('❌ Failed to save memory:', error);
       throw error;
@@ -76,15 +74,37 @@ export class VectorMemoryService {
     typeFilter?: MemoryEntry['metadata']['type']
   ): Promise<MemorySearchResult[]> {
     try {
-      const vectorTypeFilter = typeFilter ? this.memoryTypeToVectorType(typeFilter) : undefined;
-      const vectorResults = await VectorDatabase.searchSimilar(query, limit, minSimilarity, vectorTypeFilter);
+      const entries = this.loadEntries();
+      const queryLower = query.toLowerCase();
+      
+      // Simple text-based search (will be replaced with vector search via RxDB)
+      const results: MemorySearchResult[] = entries
+        .filter(entry => !typeFilter || entry.metadata.type === typeFilter)
+        .map(entry => {
+          const contentLower = entry.content.toLowerCase();
+          
+          // Simple similarity calculation based on word overlap
+          const queryWords = queryLower.split(/\s+/);
+          const contentWords = contentLower.split(/\s+/);
+          
+          const commonWords = queryWords.filter(word => 
+            contentWords.some(contentWord => 
+              contentWord.includes(word) || word.includes(contentWord)
+            )
+          );
+          
+          const similarity = commonWords.length / Math.max(queryWords.length, 1);
+          
+          return {
+            entry,
+            similarity
+          };
+        })
+        .filter(result => result.similarity >= minSimilarity)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
 
-      const results: MemorySearchResult[] = vectorResults.map(result => ({
-        entry: this.vectorEntryToMemoryEntry(result.entry),
-        similarity: result.similarity
-      }));
-
-      console.log('🔍 Memory search via VectorDatabase:', { 
+      console.log('🔍 Memory search completed:', { 
         query: query.substring(0, 30) + '...', 
         results: results.length,
         topSimilarity: results[0]?.similarity 
@@ -98,21 +118,30 @@ export class VectorMemoryService {
   }
 
   static getMemoryById(id: string): MemoryEntry | null {
-    const vectorEntry = VectorDatabase.getEntryById(id);
-    return vectorEntry ? this.vectorEntryToMemoryEntry(vectorEntry) : null;
+    const entries = this.loadEntries();
+    return entries.find(entry => entry.id === id) || null;
   }
 
   static deleteMemory(id: string): boolean {
-    const success = VectorDatabase.deleteEntry(id);
-    if (success) {
-      console.log('🗑️ Memory deleted via VectorDatabase:', id);
+    try {
+      const entries = this.loadEntries();
+      const index = entries.findIndex(entry => entry.id === id);
+      
+      if (index === -1) return false;
+      
+      entries.splice(index, 1);
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(entries));
+      
+      console.log('🗑️ Memory deleted:', id);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to delete memory:', error);
+      return false;
     }
-    return success;
   }
 
   static getAllMemories(): MemoryEntry[] {
-    const vectorEntries = VectorDatabase.getAllEntries();
-    return vectorEntries.map(entry => this.vectorEntryToMemoryEntry(entry));
+    return this.loadEntries();
   }
 
   static getMemoryStats(): {
@@ -122,38 +151,61 @@ export class VectorMemoryService {
     newestEntry: Date | null;
     averageImportance: number;
   } {
-    const stats = VectorDatabase.getStats();
+    const entries = this.loadEntries();
     
-    // Convert vector types back to memory types for display
+    if (entries.length === 0) {
+      return {
+        totalEntries: 0,
+        byType: {},
+        oldestEntry: null,
+        newestEntry: null,
+        averageImportance: 0
+      };
+    }
+
     const byType: Record<string, number> = {};
-    Object.entries(stats.byType).forEach(([vectorType, count]) => {
-      let memoryType: string;
-      switch (vectorType) {
-        case 'user_message':
-        case 'assistant_message':
-        case 'conversation_context':
-          memoryType = 'conversation';
-          break;
-        case 'memory':
-          memoryType = 'memory';
-          break;
-        default:
-          memoryType = vectorType;
-      }
-      byType[memoryType] = (byType[memoryType] || 0) + count;
-    });
+    let totalImportance = 0;
+    let oldest = entries[0].metadata.timestamp;
+    let newest = entries[0].metadata.timestamp;
+
+    for (const entry of entries) {
+      byType[entry.metadata.type] = (byType[entry.metadata.type] || 0) + 1;
+      totalImportance += entry.metadata.importance;
+      
+      if (entry.metadata.timestamp < oldest) oldest = entry.metadata.timestamp;
+      if (entry.metadata.timestamp > newest) newest = entry.metadata.timestamp;
+    }
 
     return {
-      totalEntries: stats.totalEntries,
+      totalEntries: entries.length,
       byType,
-      oldestEntry: stats.oldestEntry,
-      newestEntry: stats.newestEntry,
-      averageImportance: stats.averageImportance
+      oldestEntry: oldest,
+      newestEntry: newest,
+      averageImportance: totalImportance / entries.length
     };
   }
 
   static clearAllMemories(): void {
-    VectorDatabase.clearAllEntries();
-    console.log('🧹 All memories cleared via VectorDatabase');
+    localStorage.removeItem(this.STORAGE_KEY);
+    console.log('🧹 All memories cleared');
+  }
+
+  private static loadEntries(): MemoryEntry[] {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (!stored) return [];
+      
+      const parsed = JSON.parse(stored);
+      return parsed.map((entry: any) => ({
+        ...entry,
+        metadata: {
+          ...entry.metadata,
+          timestamp: new Date(entry.metadata.timestamp)
+        }
+      }));
+    } catch (error) {
+      console.error('❌ Failed to load memories:', error);
+      return [];
+    }
   }
 }
