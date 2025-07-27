@@ -177,8 +177,19 @@ describe('Memory Flow Integration Tests', () => {
         LLMDecisionService.generateReflection(state).subscribe(resolve);
       });
 
-      // 4. Vänta längre för att låta asynkron minneslagring slutföras
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // 4. Vänta på att reflektionen slutförs och eventuell minneslagring
+      await new Promise(resolve => {
+        LLMDecisionService.generateReflection(state).subscribe({
+          next: (reflection) => {
+            console.log('🧪 Reflection received:', reflection);
+            resolve(reflection);
+          },
+          error: (error) => {
+            console.error('🧪 Reflection error:', error);
+            resolve(null);
+          }
+        });
+      });
 
       // 5. Verifiera att reflektionen genererades korrekt
       expect(reflection).toBeTruthy();
@@ -275,8 +286,13 @@ describe('Memory Flow Integration Tests', () => {
       // 3. Indexera konversationskontext
       await ConversationIndexer.indexConversationContext(messages);
 
-      // 4. Vänta längre på att indexeringen slutförs
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 4. Vänta på att alla indexeringsoperationer slutförs
+      await ConversationIndexer.processQueue();
+      
+      // Vänta tills kön är helt tom
+      while (ConversationIndexer.getQueueSize() > 0) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
 
       // 5. Verifiera att meddelanden indexerades
       const allEntries = VectorDatabase.getAllEntries();
@@ -313,8 +329,13 @@ describe('Memory Flow Integration Tests', () => {
         await ConversationIndexer.indexUserMessage(message);
       }
 
-      // 3. Vänta längre på indexering
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 3. Vänta på att indexeringen slutförs
+      await ConversationIndexer.processQueue();
+      
+      // Vänta tills kön är helt tom
+      while (ConversationIndexer.getQueueSize() > 0) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
 
       // 4. Sök efter relevant kontext för nytt meddelande
       const newMessage = 'Kan du hjälpa mig med TypeScript-problem?';
