@@ -8,11 +8,13 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:llm": "vitest run --reporter=src/test/reporters/llmReporter.ts",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:integration": "vitest run src/test/integration",
     "test:unit": "vitest run src/test/services",
+    "test:failures": "vitest run --reporter=json --outputFile=vitest-output.json --no-color --silent && jq -r '.testResults[] | select(.status == \"fail\") | .filepath' vitest-output.json | xargs vitest run --reporter=json --no-color --silent",
     "test:watch": "vitest watch"
   },
   "dependencies": {
