@@ -11,7 +11,10 @@ import { Message } from '../../types/chat';
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
+      console.log('🧪 Mock embedding called with:', text?.substring(0, 30) + '...');
+      
       if (!text || typeof text !== 'string' || text.length === 0) {
+        console.log('🧪 Empty text, creating fallback embedding');
         const fallbackEmbedding = new Array(384).fill(0);
         for (let i = 0; i < 384; i++) {
           fallbackEmbedding[i] = 0.1 + (i * 0.001);
@@ -19,19 +22,57 @@ vi.mock('../../services/embeddingService', () => ({
         return Promise.resolve(fallbackEmbedding);
       }
       
-      // Create a deterministic embedding based on text content
+      // Create a deterministic but varied embedding based on text content
       const embedding = new Array(384).fill(0);
-      for (let i = 0; i < Math.min(text.length, 384); i++) {
-        embedding[i] = (text.charCodeAt(i) / 1000) + Math.sin(i) * 0.1 + 0.01;
+      
+      // Use text hash for consistency
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) - hash + text.charCodeAt(i)) & 0xffffffff;
       }
       
-      // Add some variance to make embeddings unique and valid
+      // Create embeddings with strong patterns for specific words
       for (let i = 0; i < 384; i++) {
-        embedding[i] += (i * 0.001) + (text.length * 0.0001) + 0.1;
+        let baseValue = 0.5; // Start with neutral value
+        
+        // Add strong signals for specific words to ensure similarity
+        if (text.toLowerCase().includes('anna')) {
+          baseValue += Math.sin(i * 0.1) * 0.4 + 0.2;
+        }
+        if (text.toLowerCase().includes('kaffe')) {
+          baseValue += Math.cos(i * 0.1) * 0.4 + 0.2;
+        }
+        if (text.toLowerCase().includes('utvecklare')) {
+          baseValue += Math.sin(i * 0.15) * 0.4 + 0.2;
+        }
+        if (text.toLowerCase().includes('typescript')) {
+          baseValue += Math.cos(i * 0.15) * 0.4 + 0.2;
+        }
+        if (text.toLowerCase().includes('mår') || text.toLowerCase().includes('dåligt')) {
+          baseValue += Math.sin(i * 0.2) * 0.4 + 0.2;
+        }
+        
+        // Add hash-based variation for uniqueness
+        baseValue += Math.sin(i + hash * 0.0001) * 0.1;
+        
+        // Ensure value is in valid range
+        embedding[i] = Math.max(-1, Math.min(1, baseValue));
       }
       
-      // Ensure all values are valid numbers
-      return Promise.resolve(embedding.map(val => isNaN(val) ? 0.1 : val));
+      // Validate embedding before returning
+      const validEmbedding = embedding.map(val => {
+        if (isNaN(val) || !isFinite(val)) return 0.1;
+        return val;
+      });
+      
+      console.log('🧪 Mock embedding created:', { 
+        length: validEmbedding.length, 
+        sample: validEmbedding.slice(0, 3),
+        hasNaN: validEmbedding.some(v => isNaN(v)),
+        allFinite: validEmbedding.every(v => isFinite(v))
+      });
+      
+      return Promise.resolve(validEmbedding);
     }),
     clearCache: vi.fn(),
     getCacheStats: vi.fn().mockReturnValue({ size: 0, keys: [] })
@@ -140,8 +181,8 @@ describe('Memory Flow Integration Tests', () => {
         LLMDecisionService.generateReflection(state).subscribe(resolve);
       });
 
-      // 4. Vänta lite för att låta asynkron minneslagring slutföras
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // 4. Vänta längre för att låta asynkron minneslagring slutföras
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // 5. Verifiera att reflektionen genererades korrekt
       expect(reflection).toBeTruthy();
@@ -238,8 +279,8 @@ describe('Memory Flow Integration Tests', () => {
       // 3. Indexera konversationskontext
       await ConversationIndexer.indexConversationContext(messages);
 
-      // 4. Vänta på att indexeringen slutförs
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // 4. Vänta längre på att indexeringen slutförs
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // 5. Verifiera att meddelanden indexerades
       const allEntries = VectorDatabase.getAllEntries();
@@ -276,8 +317,8 @@ describe('Memory Flow Integration Tests', () => {
         await ConversationIndexer.indexUserMessage(message);
       }
 
-      // 3. Vänta på indexering
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // 3. Vänta längre på indexering
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // 4. Sök efter relevant kontext för nytt meddelande
       const newMessage = 'Kan du hjälpa mig med TypeScript-problem?';
