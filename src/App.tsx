@@ -423,6 +423,7 @@ Använd denna kontext för att ge mer personliga och relevanta svar, men nämn i
       e.preventDefault();
       handleSendMessage();
     }
+    // Shift+Enter ska tillåtas för nya rader - ingen preventDefault här
   };
 
   const adjustTextareaHeight = () => {
@@ -553,7 +554,7 @@ Använd denna kontext för att ge mer personliga och relevanta svar, men nämn i
                 ref={textareaRef}
                 value={currentMessage}
                 onChange={(e) => setCurrentMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyDown}
                 placeholder="Skriv ditt meddelande... AI:n reflekterar medan du skriver"
                 className="w-full resize-none rounded-lg border border-gray-300 px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm leading-relaxed"
                 style={{ minHeight: '44px', maxHeight: '120px' }}
