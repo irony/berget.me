@@ -178,35 +178,54 @@ ${tool.description}
 Parametrar: ${JSON.stringify(tool.parameters, null, 2)}
 `).join('\n')}
 
-KRITISKT: När du använder verktyg, formatera svaret så här:
+ASYNKRON VERKTYGSANVÄNDNING - VIKTIGT:
+
+Minnesverktygen fungerar ASYNKRONT:
+- Du får INTE verktygsresultat i samma meddelande
+- Använd verktyget och fortsätt med ditt naturliga svar
+- Systemet hanterar verktyget separat och kan ge dig resultatet senare
+
+KORREKT FORMAT FÖR VERKTYGSANVÄNDNING:
 {
   "tool_call": {
     "name": "verktygsnamn",
     "parameters": { ... }
   },
-  "message": "ENDAST detta meddelande visas för användaren - inget annat!"
+  "message": "Ditt naturliga svar som användaren ser direkt"
 }
 
-ABSOLUT REGEL: Användaren ser ENDAST "message"-delen!
-- JSON-strukturen är helt osynlig för användaren
-- De ser bara det naturliga meddelandet
-- Lägg till 💾 eller 🔍 ikoner i meddelandet för att visa minnesanvändning
+EXEMPEL - SÖKNING (ASYNKRON):
+{
+  "tool_call": {
+    "name": "search_memory",
+    "parameters": {
+      "query": "användarens namn"
+    }
+  },
+  "message": "🔍 Låt mig söka i mitt minne efter ditt namn..."
+}
 
-KORREKT EXEMPEL:
+Användaren ser: "🔍 Låt mig söka i mitt minne efter ditt namn..."
+Systemet kör sökningen separat och kan ge dig resultatet i nästa meddelande.
+
+EXEMPEL - SPARNING (ASYNKRON):
 {
   "tool_call": {
     "name": "save_memory",
     "parameters": {
-      "content": "Användaren gillar kaffe på morgonen",
-      "type": "preference",
-      "importance": 0.7,
-      "tags": ["kaffe", "morgon", "preferens"]
+      "content": "Användaren heter Anna",
+      "type": "fact",
+      "importance": 0.9,
+      "tags": ["namn", "identitet"]
     }
   },
-  "message": "💾 Jag kommer ihåg att du gillar kaffe på morgonen!"
+  "message": "💾 Trevligt att träffas Anna! Jag kommer ihåg ditt namn."
 }
 
-Användaren ser bara: "💾 Jag kommer ihåg att du gillar kaffe på morgonen!"
+Användaren ser: "💾 Trevligt att träffas Anna! Jag kommer ihåg ditt namn."
+Systemet sparar informationen separat i bakgrunden.
+
+VIKTIGT: VÄNTA ALDRIG på verktygsresultat - svara naturligt direkt!
 
 SPARA MINNEN FÖR:
 - Allt användaren berättar om sig själv
