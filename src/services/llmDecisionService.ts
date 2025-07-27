@@ -176,7 +176,7 @@ export class LLMDecisionService {
         return;
       }
       
-      apiCall.then(response => {
+      apiCall.then(async response => {
           console.log('📨 Raw API response for reflection (first 200 chars):', response.substring(0, 200));
           console.log('📨 Full response length:', response.length);
           
@@ -215,22 +215,19 @@ export class LLMDecisionService {
               console.log('💾 Reflection AI wants to save memory:', reflection.memoryAction);
               
               // Import and use VectorMemoryService to save the memory
-              import('../services/vectorMemory').then(async ({ VectorMemoryService }) => {
-                try {
-                  const id = await VectorMemoryService.saveMemory(
-                    reflection.memoryAction.content,
-                    reflection.memoryAction.type,
-                    reflection.memoryAction.importance,
-                    reflection.memoryAction.tags,
-                    `Reflection AI: ${reflection.memoryAction.reasoning}`
-                  );
-                  console.log('💾 Memory saved by Reflection AI:', id);
-                } catch (error) {
-                  console.error('❌ Failed to save memory from Reflection AI:', error);
-                }
-              }).catch(error => {
-                console.error('❌ Failed to import VectorMemoryService:', error);
-              });
+              try {
+                const { VectorMemoryService } = await import('../services/vectorMemory');
+                const id = await VectorMemoryService.saveMemory(
+                  reflection.memoryAction.content,
+                  reflection.memoryAction.type,
+                  reflection.memoryAction.importance,
+                  reflection.memoryAction.tags,
+                  `Reflection AI: ${reflection.memoryAction.reasoning}`
+                );
+                console.log('💾 Memory saved by Reflection AI:', id);
+              } catch (error) {
+                console.error('❌ Failed to save memory from Reflection AI:', error);
+              }
             } else if (reflection.memoryAction) {
               console.log('🚫 Reflection AI decided not to save memory:', reflection.memoryAction.reasoning);
             }

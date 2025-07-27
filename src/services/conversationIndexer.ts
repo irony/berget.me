@@ -141,7 +141,7 @@ export class ConversationIndexer {
   }
 
   // Process the indexing queue
-  private static async processQueue(): Promise<void> {
+  static async processQueue(): Promise<void> {
     if (this.isIndexing || this.indexQueue.length === 0) return;
 
     this.isIndexing = true;
@@ -171,7 +171,7 @@ export class ConversationIndexer {
 
         // Small delay between batches to prevent API rate limiting
         if (this.indexQueue.length > 0) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
     } finally {
@@ -256,6 +256,11 @@ export class ConversationIndexer {
       isIndexing: this.isIndexing,
       databaseStats: VectorDatabase.getStats()
     };
+  }
+
+  // Get queue size for tests
+  static getQueueSize(): number {
+    return this.indexQueue.length;
   }
 
   // Clear the indexing queue
