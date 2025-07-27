@@ -6,15 +6,36 @@ import { VectorDatabase } from '../../services/vectorDatabase';
 import { EmbeddingService } from '../../services/embeddingService';
 import { ConversationIndexer } from '../../services/conversationIndexer';
 
+// Mock scrollIntoView for jsdom
+Object.defineProperty(Element.prototype, 'scrollIntoView', {
+  value: vi.fn(),
+  writable: true,
+});
+
 // Mock all external dependencies
 vi.mock('../../services/embeddingService', () => ({
   EmbeddingService: {
     getEmbedding: vi.fn().mockImplementation((text: string) => {
+      if (!text || typeof text !== 'string' || text.length === 0) {
+        const fallbackEmbedding = new Array(384).fill(0);
+        for (let i = 0; i < 384; i++) {
+          fallbackEmbedding[i] = 0.1 + (i * 0.001);
+        }
+        return Promise.resolve(fallbackEmbedding);
+      }
+      
       const embedding = new Array(384).fill(0);
       for (let i = 0; i < Math.min(text.length, 384); i++) {
-        embedding[i] = (text.charCodeAt(i) / 1000) + Math.sin(i) * 0.1;
+        embedding[i] = (text.charCodeAt(i) / 1000) + Math.sin(i + text.length) * 0.1 + 0.05;
       }
-      return Promise.resolve(embedding);
+      
+      // Add more variance to ensure uniqueness
+      for (let i = 0; i < 384; i++) {
+        embedding[i] += (i * 0.001) + (text.length * 0.0001) + 0.1;
+      }
+      
+      // Ensure all values are valid numbers
+      return Promise.resolve(embedding.map(val => isNaN(val) ? 0.1 : val));
     }),
     clearCache: vi.fn(),
     getCacheStats: vi.fn().mockReturnValue({ size: 5, keys: ['test1', 'test2'] })
