@@ -131,12 +131,12 @@ export class VectorDatabase {
   ): Promise<string> {
     try {
       const embedding = await EmbeddingService.getEmbedding(content);
-      if (!embedding || !Array.isArray(embedding) || embedding.length === 0) {
+      if (!embedding || !Array.isArray(embedding) || embedding.length === 0 || embedding.some(val => isNaN(val))) {
         console.error('Invalid embedding returned from service:', embedding);
         throw new Error('Invalid embedding returned from service');
       }
       const indexVectors = await this.getIndexVectors();
-      if (!indexVectors || !Array.isArray(indexVectors)) {
+      if (!indexVectors || !Array.isArray(indexVectors) || indexVectors.length === 0) {
         throw new Error('Invalid index vectors');
       }
 
