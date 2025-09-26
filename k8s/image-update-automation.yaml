@@ -1,0 +1,25 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: berget-me
+  namespace: berget-me
+spec:
+  interval: 1m
+  sourceRef:
+    kind: ImageRepository
+    name: berget-me
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: fluxcd
+        email: fluxcd@example.com
+      messageTemplate: "Update berget-me to version { .Object.Tag }"
+    push:
+      ref:
+        branch: main
+  update:
+    path: ./k8s
+    strategy: Setters
